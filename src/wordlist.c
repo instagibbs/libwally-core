@@ -86,6 +86,10 @@ size_t wordlist_lookup_word(const struct words *w, const char *word)
 size_t wordlist_lookup_prefix(const struct words *w, const char *prefix)
 {
     const size_t prefix_len = strlen(prefix);
+    // We only allow length 3 and 4 prefixes
+    if (prefix_len != 3 && prefix_len != 4) {
+        return 0;
+    }
     size_t found = 0;
 
     size_t i;
@@ -95,6 +99,10 @@ size_t wordlist_lookup_prefix(const struct words *w, const char *prefix)
                 return 0;  // prefix match is not unique
             }
             found = i + 1;
+            // If prefix is length is 3 and is an exact match, immediately return success
+            if (prefix_len == 3 && w->len) {
+                return found;
+            }
         }
     }
 
