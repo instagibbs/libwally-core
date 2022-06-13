@@ -35,12 +35,14 @@ extern "C" {
 #define WALLY_TX_DUMMY_SIG_LOW_R  0x4 /* A dummy signature created with EC_FLAG_GRIND_R */
 
 /** Sighash flags for transaction signing */
+#define WALLY_SIGHASH_DEFAULT      0x00
 #define WALLY_SIGHASH_ALL          0x01
 #define WALLY_SIGHASH_NONE         0x02
 #define WALLY_SIGHASH_SINGLE       0x03
 #define WALLY_SIGHASH_FORKID       0x40
 #define WALLY_SIGHASH_RANGEPROOF   0x40  /* for elements */
 #define WALLY_SIGHASH_ANYONECANPAY 0x80
+
 
 #define WALLY_TX_ASSET_CT_VALUE_PREFIX_A 8
 #define WALLY_TX_ASSET_CT_VALUE_PREFIX_B 9

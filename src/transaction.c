@@ -5,6 +5,7 @@
 #include <include/wally_crypto.h>
 #include <include/wally_transaction.h>
 
+#include <assert.h>
 #include <limits.h>
 #include <stdbool.h>
 #include "transaction_int.h"
@@ -47,6 +48,11 @@ struct tx_serialize_opts
     bool bip143;                     /* Serialize for BIP143 hash */
     const unsigned char *value;      /* Confidential value of the input we are signing */
     size_t value_len;                /* length of 'value' in bytes */
+    bool bip341;                     /* Serialize for BIP341 taproot hash */
+    bool bip342;                     /* Serialize for BIP342 tapscript hash */
+    uint64_t *prev_satoshis;         /* Output amounts for BIP341/342 sha_amounts */
+    const unsigned char **prev_scripts; /* Output scripts for BIP341/342 sha_scriptpubkeys  */
+    size_t *prev_script_lens;        /* Script lengths for BIP341/342 sha_scrippubkeys */
 };
 
 static const unsigned char EMPTY_OUTPUT[9] = {
@@ -2102,6 +2108,201 @@ error:
     return ret;
 }
 
+static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
+                                     const struct tx_serialize_opts *opts,
+                                     uint32_t flags,
+                                     unsigned char *bytes_out, size_t len,
+                                     size_t *written)
+{
+    unsigned char buff[TX_STACK_SIZE / 2], *buff_p = buff;
+    size_t i, inputs_size, outputs_size, buff_len = sizeof(buff);
+    size_t is_elements = 0;
+    size_t running_script_len = 0; /* sha_scriptpubkeys */
+    const bool has_annex = false;
+    const bool anyonecanpay = opts->sighash & WALLY_SIGHASH_ANYONECANPAY;
+#ifdef BUILD_ELEMENTS
+    const bool sh_rangeproof = opts->sighash & WALLY_SIGHASH_RANGEPROOF;
+#endif
+    const bool sh_none = (opts->sighash & SIGHASH_MASK) == WALLY_SIGHASH_NONE;
+    const bool sh_single = (opts->sighash & SIGHASH_MASK) == WALLY_SIGHASH_SINGLE;
+    unsigned char *p = bytes_out, *output_p;
+    int ret = WALLY_OK;
+
+    (void)flags;
+    (void)len;
+
+#ifdef BUILD_ELEMENTS
+    if ((ret = wally_tx_is_elements(tx, &is_elements)) != WALLY_OK)
+        return ret;
+#endif
+
+    /* Note we assume tx_to_bytes has already validated all inputs */
+
+    /* No undefined hash_type values allowed */
+    switch (opts->sighash) {
+        case 0x00:
+        case 0x01:
+        case 0x02:
+        case 0x03:
+        case 0x81:
+        case 0x82:
+        case 0x83:
+            break;
+        default:
+            return WALLY_EINVAL;
+    }
+
+    /* no "corresponding output" SIGHASH_SINGLE disallowed` */
+    if (sh_single && opts->index >= tx->num_outputs)
+        return WALLY_EINVAL;
+
+    /* hash_type (1) */
+    p += uint8_to_le_bytes(opts->sighash, p);
+
+    /* nVersion (4) */
+    p += uint32_to_le_bytes(tx->version, p);
+
+    /* nLockTime (4) */
+    p += uint32_to_le_bytes(tx->locktime, p);
+
+    /* Calculate some variables for further processing */
+    inputs_size = tx->num_inputs * (WALLY_TXHASH_LEN + sizeof(uint32_t));
+
+    if (sh_none)
+        outputs_size = 0;
+    else if (sh_single) {
+        if (!is_elements)
+            outputs_size = sizeof(uint64_t) +
+                           varbuff_get_length(tx->outputs[opts->index].script_len);
+        else
+            return WALLY_EINVAL;
+    } else {
+        outputs_size = 0;
+        for (i = 0; i < tx->num_outputs; ++i) {
+            if (!is_elements)
+                outputs_size += sizeof(uint64_t);
+            else
+                return WALLY_EINVAL;
+            outputs_size += varbuff_get_length(tx->outputs[i].script_len);
+        }
+    }
+
+
+    /* Allocate a larger buffer in heap if necessary based on tx part sizes */
+    if (inputs_size > buff_len || outputs_size > buff_len) {
+        buff_len = inputs_size > outputs_size ? inputs_size : outputs_size;
+        buff_p = wally_malloc(buff_len);
+        if (buff_p == NULL)
+            return WALLY_ENOMEM;
+    }
+
+    if (!anyonecanpay) {
+        /* sha_prevouts */
+        for (i = 0; i < tx->num_inputs; ++i) {
+            unsigned char *tmp_p = buff_p + i * (WALLY_TXHASH_LEN + sizeof(uint32_t));
+            memcpy(tmp_p, tx->inputs[i].txhash, WALLY_TXHASH_LEN);
+            uint32_to_le_bytes(tx->inputs[i].index, tmp_p + WALLY_TXHASH_LEN);
+        }
+
+        if ((ret = wally_sha256(buff_p, inputs_size, p, SHA256_LEN)) != WALLY_OK)
+            goto error;
+        p += SHA256_LEN;
+
+        /* sha_amounts */
+        for (i=0; i< tx->num_inputs; ++i) {
+            unsigned char *tmp_p = buff_p + i * sizeof(uint64_t);
+            uint64_to_le_bytes(opts->prev_satoshis[i], tmp_p);
+        }
+        if ((ret = wally_sha256(buff_p, tx->num_inputs * sizeof(uint64_t), p, SHA256_LEN)) != WALLY_OK)
+            goto error;
+        p += SHA256_LEN;
+
+        /* sha_scriptpubkeys */
+        for (i=0; i< tx->num_inputs; ++i) {
+            unsigned char *tmp_p = buff_p + running_script_len;
+            running_script_len += varbuff_to_bytes(opts->prev_scripts[i], opts->prev_script_lens[i], tmp_p);
+        }
+        if ((ret = wally_sha256(buff_p, running_script_len, p, SHA256_LEN)) != WALLY_OK)
+            goto error;
+        p += SHA256_LEN;
+
+        /* sha_sequences */
+        for (i = 0; i < tx->num_inputs; ++i)
+            uint32_to_le_bytes(tx->inputs[i].sequence, buff_p + i * sizeof(uint32_t));
+
+        ret = wally_sha256(buff_p, tx->num_inputs * sizeof(uint32_t), p, SHA256_LEN);
+        if (ret != WALLY_OK)
+            goto error;
+        p += SHA256_LEN;
+
+    }
+
+    if (!sh_none && !sh_single) {
+        /* sha_outputs */
+        output_p = buff_p;
+        for (i = 0; i < tx->num_outputs; ++i) {
+            output_p += uint64_to_le_bytes(tx->outputs[i].satoshi, output_p);
+            output_p += varbuff_to_bytes(tx->outputs[i].script,
+                                         tx->outputs[i].script_len, output_p);
+        }
+        ret = wally_sha256(buff_p, outputs_size, p, SHA256_LEN);
+        if (ret != WALLY_OK)
+            goto error;
+        p += SHA256_LEN;
+    }
+
+    /* Data about this input */
+
+    /* spend_type (1)
+     * ext_flag*2 + annex_present
+     */
+
+    /* no annex support yet */
+    assert(!has_annex);
+    p += uint8_to_le_bytes((opts->bip342 ? 1*2 : 0*2) + has_annex, p);
+
+    if (anyonecanpay) {
+        /* outpoint (36) */
+        memcpy(p, tx->inputs[opts->index].txhash, WALLY_TXHASH_LEN);
+        p += WALLY_TXHASH_LEN;
+        p += uint32_to_le_bytes(tx->inputs[opts->index].index, p);
+        /* amount (8) */
+        p += uint64_to_le_bytes(opts->satoshi, p);
+        /* scriptPubKey (35) */
+        assert(opts->script_len == 35);
+        p += varbuff_to_bytes(opts->script, opts->script_len, p);
+        /* nSequence (4) */
+        p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
+    } else {
+        /* input_index (4) */
+        p += uint32_to_le_bytes(opts->index, p);
+    }
+
+    /* sha_annex (not supported) */
+
+    /* Data about this output */
+    if (sh_single) {
+        /* sha_single_output */
+        output_p = buff_p;
+        output_p += uint64_to_le_bytes(tx->outputs[opts->index].satoshi, output_p);
+        output_p += varbuff_to_bytes(tx->outputs[opts->index].script, tx->outputs[opts->index].script_len, output_p);
+        ret = wally_sha256(buff_p, sizeof(uint64_t) + tx->outputs[opts->index].script_len, p, SHA256_LEN);
+        if (ret != WALLY_OK)
+            goto error;
+        p += SHA256_LEN;
+
+    }
+
+    *written = p - bytes_out;
+
+error:
+    if (buff_p != buff)
+        clear_and_free(buff_p, buff_len);
+    else
+        wally_clear(buff, sizeof(buff));
+    return ret;
+}
+
 static int tx_to_bytes(const struct wally_tx *tx,
                        const struct tx_serialize_opts *opts,
                        uint32_t flags,
@@ -2152,6 +2353,9 @@ static int tx_to_bytes(const struct wally_tx *tx,
 
     if (opts && opts->bip143)
         return tx_to_bip143_bytes(tx, opts, flags, bytes_out, len, written);
+
+    if (opts && opts->bip341)
+        return tx_to_bip341_bytes(tx, opts, flags, bytes_out, len, written);
 
     if (flags & WALLY_TX_FLAG_USE_WITNESS) {
         if (wally_tx_get_witness_count(tx, &witness_count) != WALLY_OK)
@@ -2821,7 +3025,7 @@ static int tx_get_signature_hash(const struct wally_tx *tx,
     const struct tx_serialize_opts opts = {
         sighash, tx_sighash, index, script, script_len, satoshi,
         (flags & WALLY_TX_FLAG_USE_WITNESS) ? true : false,
-        value, value_len
+        value, value_len, false /* bip341 */, false /* bip342 */, NULL, NULL, NULL
     };
 
     if (!is_valid_tx(tx) || BYTES_INVALID(script, script_len) ||
