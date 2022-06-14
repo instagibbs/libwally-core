@@ -3039,6 +3039,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
     size_t n, n2;
     size_t is_elements = 0;
     int ret;
+    int expected_size = 0;
     const struct tx_serialize_opts opts = {
         sighash, tx_sighash, index, NULL, 0, satoshis[index],
         false, NULL, 0, true /* bip341 */, tapleaf_script != NULL /* bip342 */, satoshis, scripts, script_lens,
@@ -3054,8 +3055,14 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
     if ((ret = tx_to_bytes(tx, &opts, 0, buff_p, n, &n2, is_elements != 0)) != WALLY_OK)
         goto fail;
 
-    /* No support for annex currently, so final byffer can only be 206-32=174 bytes tops */
-    if (n2 != 174 - ((opts.sighash & WALLY_SIGHASH_ANYONECANPAY) * 49) - ((opts.sighash & WALLY_SIGHASH_NONE) * 32) + 0*32)
+    /* No support for annex */
+    expected_size = 174 - ((opts.sighash & WALLY_SIGHASH_ANYONECANPAY) * 49) - ((opts.sighash & WALLY_SIGHASH_NONE) * 32) + 0*32;
+    if (tapleaf_script) {
+        /* tapleaf_hash + key_version + codesep_position */
+        expected_size += 32 + 1 + 4;
+    }
+
+    if (n2 != expected_size)
         ret = WALLY_ERROR;
     else
         ret = wally_sha256(buff_p, n2, bytes_out, len);
