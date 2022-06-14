@@ -2129,7 +2129,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 #endif
     const bool sh_none = (opts->sighash & SIGHASH_MASK) == WALLY_SIGHASH_NONE;
     const bool sh_single = (opts->sighash & SIGHASH_MASK) == WALLY_SIGHASH_SINGLE;
-    unsigned char *p = bytes_out, *output_p;
+    unsigned char *p = bytes_out, *output_p, *msg_p;
     int ret = WALLY_OK;
 
     (void)flags;
@@ -2311,7 +2311,12 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         /* tapleaf_hash (32)
          * hash_TapLeaf(v || compact_size(size of s) || s)
          */
-        // FIXME
+        msg_p = buff_p;
+        msg_p[0] = 0xC0; /* leaf_version */
+        msg_p += 1;
+        msg_p += varbuff_to_bytes(opts->tapleaf_script, opts->tapleaf_script_len, msg_p);
+        if (!wally_tagged_hash(msg_p, msg_p-buff_p, "TapLeaf", sizeof("TapLeaf"), p, 32))
+            goto error;
 
         /* key_version (1) */
         assert(opts->key_version == 0x00);
