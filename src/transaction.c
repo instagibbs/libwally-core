@@ -53,6 +53,10 @@ struct tx_serialize_opts
     uint64_t *prev_satoshis;         /* Output amounts for BIP341/342 sha_amounts */
     const unsigned char **prev_scripts; /* Output scripts for BIP341/342 sha_scriptpubkeys  */
     size_t *prev_script_lens;        /* Script lengths for BIP341/342 sha_scrippubkeys */
+    unsigned char *tapleaf_script;   /* Executed BIP342 tapscript */
+    size_t tapleaf_script_len;       /* Length of executed tapscript */
+    uint8_t key_version;             /* BIP342 key version */
+    uint32_t codesep_position;       /* BIP342 codeseperation position */
 };
 
 static const unsigned char EMPTY_OUTPUT[9] = {
@@ -3085,6 +3089,10 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
                                  size_t index,
                                  const unsigned char **scripts, size_t *script_lens,
                                  uint64_t *satoshis,
+                                 const unsigned char *tapleaf_script,
+                                 size_t tapleaf_script_len,
+                                 uint8_t key_version,
+                                 uint32_t codesep_position,
                                  uint32_t sighash, uint32_t tx_sighash, uint32_t flags,
                                  unsigned char *bytes_out, size_t len)
 {
@@ -3094,7 +3102,8 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
     int ret;
     const struct tx_serialize_opts opts = {
         sighash, tx_sighash, index, NULL, 0, satoshis[index],
-        false, NULL, 0, true /* bip341 */, false /* bip342 */, satoshis, scripts, script_lens,
+        false, NULL, 0, true /* bip341 */, tapleaf_script != NULL /* bip342 */, satoshis, scripts, script_lens,
+        tapleaf_script, tapleaf_script_len, key_version, codesep_position
     };
 
     assert(flags == 0);
@@ -3149,11 +3158,16 @@ int wally_tx_get_btc_taproot_signature_hash(const struct wally_tx *tx,
                                             const unsigned char **scripts,
                                             size_t *script_lens,
                                             uint64_t *satoshis,
+                                            const unsigned char *tapleaf_script,
+                                            size_t tapleaf_script_len,
+                                            uint8_t key_version,
+                                            uint32_t codesep_position,
                                             uint32_t flags,
                                             unsigned char *bytes_out,
                                             size_t len)
 {
-    return tx_get_taproot_signature_hash(tx, index, scripts, script_lens, satoshis, hash_type, hash_type, flags, bytes_out, len);
+    return tx_get_taproot_signature_hash(tx, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len,
+        key_version, codesep_position, hash_type, hash_type, flags, bytes_out, len);
 }
 
 int wally_tx_get_elements_signature_hash(const struct wally_tx *tx,
