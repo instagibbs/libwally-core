@@ -98,6 +98,29 @@ int wally_bzero(void *bytes, size_t len)
     return WALLY_OK;
 }
 
+int wally_tagged_hash(const unsigned char *bytes, size_t bytes_len,
+                      const char *tag, size_t tag_len,
+                      unsigned char *bytes_out, size_t len)
+{
+    struct sha256 sha;
+    struct sha256_ctx ctx;
+
+    if ((!bytes && bytes_len != 0) || !bytes_out || len != SHA256_LEN)
+        return WALLY_EINVAL;
+
+    /* SHA256(SHA256(tag) || SHA256(tag) || msg) */
+    sha256(&sha, tag, tag_len);
+    sha256_init(&ctx);
+    sha256_update(&ctx, &sha, sizeof(sha));
+    sha256_update(&ctx, &sha, sizeof(sha));
+    sha256_update(&ctx, bytes, bytes_len);
+    sha256_done(&ctx, &sha);
+
+    memcpy(bytes_out, &sha, sizeof(sha));
+    wally_clear(&sha, sizeof(sha));
+    return WALLY_OK;
+}
+
 int wally_sha256(const unsigned char *bytes, size_t bytes_len,
                  unsigned char *bytes_out, size_t len)
 {
