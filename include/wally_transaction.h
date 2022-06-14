@@ -685,28 +685,25 @@ WALLY_CORE_API int wally_tx_get_btc_signature_hash(
  * Create a BTC transaction for taproot signing and return its hash.
  *
  * :param tx: The transaction to generate the signature hash from.
+ * :param hash_type: The BIP341 hash_type to use, via ``WALLY_SIGHASH_``.
  * :param index: The input index of the input being signed for.
- * :param script: The (unprefixed) scriptCode for the input being signed.
- * :param script_len: Size of ``script`` in bytes.
- * :param satoshi: The amount spent by the input being signed for. Only used if
- *|     flags includes ``WALLY_TX_FLAG_USE_WITNESS``, pass 0 otherwise.
- * :param sighash: ``WALLY_SIGHASH_`` flags specifying the type of signature desired.
- * :param flags: ``WALLY_TX_FLAG_USE_WITNESS`` to generate a BIP 143 signature, or 0
- *|     to generate a pre-segwit Bitcoin signature.
+ * :param scripts: Array of the (unprefixed) scriptCodes for the inputs being signed.
+ * :param script_lens: Array of sizes of ``script``s in bytes.
+ * :param satoshis: Array of amounts spent.
+ * :param flags: Unused. Must be 0.
  * :param bytes_out: Destination for the signature hash.
  * :param len: Size of ``bytes_out`` in bytes. Must be at least ``SHA256_LEN``.
  */
 WALLY_CORE_API int wally_tx_get_btc_taproot_signature_hash(
     const struct wally_tx *tx,
+    uint8_t hash_type,
     size_t index,
-    const unsigned char *script,
-    size_t script_len,
-    uint64_t satoshi,
-    uint32_t sighash,
+    const unsigned char **scripts,
+    size_t *script_lens,
+    uint64_t *satoshis,
     uint32_t flags,
     unsigned char *bytes_out,
     size_t len);
-
 
 /**
  * Create a transaction for signing and return its hash.
