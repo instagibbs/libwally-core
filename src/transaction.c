@@ -2100,6 +2100,9 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     if (sh_single && opts->index >= tx->num_outputs)
         return WALLY_EINVAL;
 
+    /* sighash epoch */
+    p += int8_to_le_bytes(0, p);
+
     /* hash_type (1) */
     p += uint8_to_le_bytes(opts->sighash, p);
 
@@ -3082,6 +3085,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
 
     /* No support for annex */
     expected_size = 174 - ((opts.sighash & WALLY_SIGHASH_ANYONECANPAY) * 49) - ((opts.sighash & WALLY_SIGHASH_NONE) * 32) + 0*32;
+    expected_size += 1; /* sighash epoch which goes prior to SigMsg for usages of TapSighash */
     if (tapleaf_script) {
         /* tapleaf_hash + key_version + codesep_position */
         expected_size += 32 + 1 + 4;
