@@ -2285,8 +2285,8 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         /* amount (8) */
         p += uint64_to_le_bytes(opts->satoshi, p);
         /* scriptPubKey (35) */
-        assert(opts->script_len == 35);
-        p += varbuff_to_bytes(opts->script, opts->script_len, p);
+        assert(opts->prev_script_lens[opts->index] == 34);
+        p += varbuff_to_bytes(opts->prev_scripts[opts->index], opts->prev_script_lens[opts->index], p);
         /* nSequence (4) */
         p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
     } else {
@@ -3148,7 +3148,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
         goto fail;
 
     /* No support for annex */
-    expected_size = 174 - ((opts.sighash & WALLY_SIGHASH_ANYONECANPAY) * 49) - (((opts.sighash & SIGHASH_MASK) == WALLY_SIGHASH_NONE) * 32) + 0*32;
+    expected_size = 174 - (!!(opts.sighash & WALLY_SIGHASH_ANYONECANPAY) * 49) - (((opts.sighash & SIGHASH_MASK) == WALLY_SIGHASH_NONE) * 32) + 0*32;
     expected_size += 1; /* sighash epoch which goes prior to SigMsg for usages of TapSighash */
     if (tapleaf_script) {
         /* tapleaf_hash + key_version + codesep_position */
