@@ -266,37 +266,35 @@ class TransactionTests(unittest.TestCase):
 
         with open(sys.path[0]+"/"+"wallet-test-vectors.json") as f:
             test_vectors = json.load(f)
-        num_inputs = 3
+
         keyspend_case = test_vectors["keyPathSpending"][0]
         utxos = keyspend_case["given"]["utxosSpent"]
         input_spending = keyspend_case["inputSpending"]
 
         tx = self.tx_deserialize_hex(TX_BIP341_HEX)
-        hash_type = input_spending[0]["given"]["hashType"] # FIXME iterate over different inputs being spent
-        index = input_spending[0]["given"]["txinIndex"]
+        for input_index in range(1):
+            hash_type = input_spending[input_index]["given"]["hashType"] # FIXME iterate over different inputs being spent
+            index = input_spending[input_index]["given"]["txinIndex"]
 
-        scripts_arr = [bytes(bytearray.fromhex(utxo["scriptPubKey"])) for utxo in utxos]
-        scripts = (ctypes.c_char_p * len(scripts_arr))()
-        scripts[:] = scripts_arr
+            scripts_arr = [bytes(bytearray.fromhex(utxo["scriptPubKey"])) for utxo in utxos]
+            scripts = (ctypes.c_char_p * len(scripts_arr))()
+            scripts[:] = scripts_arr
 
-        script_lens = (b'').join([struct.pack("N", len(bytearray.fromhex(utxo["scriptPubKey"]))) for utxo in utxos])
-        satoshis = (b'').join([struct.pack("<Q", utxo["amountSats"]) for utxo in utxos])
+            script_lens = (b'').join([struct.pack("N", len(bytearray.fromhex(utxo["scriptPubKey"]))) for utxo in utxos])
+            satoshis = (b'').join([struct.pack("<Q", utxo["amountSats"]) for utxo in utxos])
 
-        tapleaf_script = None
-        tapleaf_script_len = 0
-        key_version = 0
-        codesep_pos = 0xFFFFFFFF
-        flags = 0
-        bytes_out, out_len = make_cbuffer('00'*32)
+            # Unused in these tests
+            tapleaf_script = None
+            tapleaf_script_len = 0
+            key_version = 0
+            codesep_pos = 0xFFFFFFFF
+            flags = 0
+            bytes_out, out_len = make_cbuffer('00'*32)
 
-        sigHash = utf8(input_spending[0]["intermediary"]["sigHash"])
+            sigHash = utf8(input_spending[input_index]["intermediary"]["sigHash"])
 
-        for args, expected in [
-            ((tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len),
-             utf8('2514a6272f85cfa0f45eb907fcb0d121b808ed37c6ea160a5a9046ed5526d555')),
-            ]:
-            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(*args))
-            self.assertEqual(expected, h(bytes_out[:out_len]))
+            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
+            self.assertEqual(sigHash, h(bytes_out[:out_len]))
 
 
 
