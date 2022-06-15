@@ -2100,7 +2100,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     if (sh_single && opts->index >= tx->num_outputs)
         return WALLY_EINVAL;
 
-    /* sighash epoch */
+    /* sighash epoch 0x00 that is prepended to SigMsg */
     p += uint8_to_le_bytes(0, p);
 
     /* hash_type (1) */
