@@ -1,5 +1,5 @@
 #include "internal.h"
-
+#include <stdio.h>
 #include "ccan/ccan/build_assert/build_assert.h"
 
 #include <include/wally_crypto.h>
@@ -2242,7 +2242,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         output_p = buff_p;
         output_p += uint64_to_le_bytes(tx->outputs[opts->index].satoshi, output_p);
         output_p += varbuff_to_bytes(tx->outputs[opts->index].script, tx->outputs[opts->index].script_len, output_p);
-        ret = wally_sha256(buff_p, sizeof(uint64_t) + tx->outputs[opts->index].script_len, p, SHA256_LEN);
+        ret = wally_sha256(buff_p, sizeof(uint64_t) + varbuff_get_length(tx->outputs[opts->index].script_len), p, SHA256_LEN);
         if (ret != WALLY_OK)
             goto error;
         p += SHA256_LEN;
@@ -3074,6 +3074,8 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
         false, NULL, 0, true /* bip341 */, tapleaf_script != NULL /* bip342 */, satoshis, scripts, script_lens,
         tapleaf_script, tapleaf_script_len, key_version, codesep_position
     };
+    char *char_output;
+    const char *tap_sighash = "TapSighash";
 
     assert(flags == 0);
 
@@ -3085,17 +3087,20 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
         goto fail;
 
     /* No support for annex */
-    expected_size = 174 - ((opts.sighash & SIGHASH_MASK == WALLY_SIGHASH_ANYONECANPAY) * 49) - ((opts.sighash & SIGHASH_MASK == WALLY_SIGHASH_NONE) * 32) + 0*32;
+    expected_size = 174 - ((opts.sighash & WALLY_SIGHASH_ANYONECANPAY) * 49) - (((opts.sighash & SIGHASH_MASK) == WALLY_SIGHASH_NONE) * 32) + 0*32;
     expected_size += 1; /* sighash epoch which goes prior to SigMsg for usages of TapSighash */
     if (tapleaf_script) {
         /* tapleaf_hash + key_version + codesep_position */
         expected_size += 32 + 1 + 4;
     }
 
+    wally_hex_from_bytes(buff_p, n2, &char_output);
+    printf("output: %s\n", char_output);
+
     if (n2 != expected_size)
         ret = WALLY_ERROR;
     else
-        ret = wally_tagged_hash(buff_p, n2, "TapSighash", sizeof("TapSighash"), bytes_out, len);
+        ret = wally_tagged_hash(buff_p, n2, tap_sighash, strlen(tap_sighash), bytes_out, len);
 
 fail:
     if (buff_p != buff)
