@@ -2317,6 +2317,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         msg_p += varbuff_to_bytes(opts->tapleaf_script, opts->tapleaf_script_len, msg_p);
         if (!wally_tagged_hash(msg_p, msg_p-buff_p, "TapLeaf", sizeof("TapLeaf"), p, 32))
             goto error;
+        p += 32;
 
         /* key_version (1) */
         assert(opts->key_version == 0x00);
