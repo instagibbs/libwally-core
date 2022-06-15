@@ -2101,7 +2101,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         return WALLY_EINVAL;
 
     /* sighash epoch */
-    p += int8_to_le_bytes(0, p);
+    p += uint8_to_le_bytes(0, p);
 
     /* hash_type (1) */
     p += uint8_to_le_bytes(opts->sighash, p);
