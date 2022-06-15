@@ -272,7 +272,7 @@ class TransactionTests(unittest.TestCase):
         input_spending = keyspend_case["inputSpending"]
 
         tx = self.tx_deserialize_hex(TX_BIP341_HEX)
-        for input_index in range(1):
+        for input_index in range(1, 2):
             hash_type = input_spending[input_index]["given"]["hashType"] # FIXME iterate over different inputs being spent
             index = input_spending[input_index]["given"]["txinIndex"]
 
