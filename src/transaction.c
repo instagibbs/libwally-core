@@ -3090,7 +3090,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
     if (n2 != expected_size)
         ret = WALLY_ERROR;
     else
-        ret = wally_sha256(buff_p, n2, bytes_out, len);
+        ret = wally_tagged_hash(buff_p, n2, "TapSighash", sizeof("TapSighash"), bytes_out, len);
 
 fail:
     if (buff_p != buff)
