@@ -2114,8 +2114,9 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     /* Allocate stack space(over-estimate) if the buffer is too small */
     prevouts_size = tx->num_inputs * (WALLY_TXHASH_LEN + sizeof(uint32_t));
-    for (i=0; i < tx->num_inputs; ++i)
+    for (i=0; i < tx->num_inputs; ++i) {
         scripts_size += varbuff_get_length(opts->prev_script_lens[i]);
+    }
 
     if (sh_none)
         outputs_size = 0;
@@ -3084,7 +3085,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
         goto fail;
 
     /* No support for annex */
-    expected_size = 174 - ((opts.sighash & WALLY_SIGHASH_ANYONECANPAY) * 49) - ((opts.sighash & WALLY_SIGHASH_NONE) * 32) + 0*32;
+    expected_size = 174 - ((opts.sighash & SIGHASH_MASK == WALLY_SIGHASH_ANYONECANPAY) * 49) - ((opts.sighash & SIGHASH_MASK == WALLY_SIGHASH_NONE) * 32) + 0*32;
     expected_size += 1; /* sighash epoch which goes prior to SigMsg for usages of TapSighash */
     if (tapleaf_script) {
         /* tapleaf_hash + key_version + codesep_position */
