@@ -3074,10 +3074,9 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
         false, NULL, 0, true /* bip341 */, tapleaf_script != NULL /* bip342 */, satoshis, scripts, script_lens,
         tapleaf_script, tapleaf_script_len, key_version, codesep_position
     };
-    char *char_output;
-    const char *tap_sighash = "TapSighash";
 
     assert(flags == 0);
+    assert(len == 32);
 
     /* Serialize sighash data into buffer. It allocates onto heap when it needs a larger
      * buffer to compute hash sub-parts.
@@ -3093,9 +3092,6 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
         /* tapleaf_hash + key_version + codesep_position */
         expected_size += 32 + 1 + 4;
     }
-
-    wally_hex_from_bytes(buff_p, n2, &char_output);
-    printf("output: %s\n", char_output);
 
     if (n2 != expected_size)
         ret = WALLY_ERROR;
