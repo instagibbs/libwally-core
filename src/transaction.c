@@ -2259,9 +2259,9 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         msg_p[0] = 0xC0; /* leaf_version */
         msg_p += 1;
         msg_p += varbuff_to_bytes(opts->tapleaf_script, opts->tapleaf_script_len, msg_p);
-        if (!wally_tagged_hash(msg_p, msg_p-buff_p, "TapLeaf", strlen("TapLeaf"), p, 32))
+        if (!wally_tagged_hash(msg_p, msg_p-buff_p, "TapLeaf", p))
             goto error;
-        p += 32;
+        p += SHA256_LEN;
 
         /* key_version (1) */
         assert(opts->key_version == 0x00);
@@ -3100,7 +3100,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
     if (n2 != expected_size)
         ret = WALLY_ERROR;
     else
-        ret = wally_tagged_hash(buff_p, n2, tap_sighash, strlen(tap_sighash), bytes_out, len);
+        ret = wally_tagged_hash(buff_p, n2, "TapSighash", bytes_out);
 
 fail:
     if (buff_p != buff)
