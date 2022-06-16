@@ -301,6 +301,8 @@ class TransactionTests(unittest.TestCase):
             self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
             codesep_pos = 0x00000001
             self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
+            key_version = 1 # Only 0 is allowed
+            self.assertEqual(WALLY_EINVAL, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
 
 if __name__ == '__main__':
     unittest.main()
