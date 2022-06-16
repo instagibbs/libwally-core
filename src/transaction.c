@@ -2140,6 +2140,9 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         return ret;
 #endif
 
+    if (opts->key_version != 0x00)
+        return WALLY_EINVAL;
+
     /* Note we assume tx_to_bytes has already validated all inputs */
 
     /* No undefined hash_type values allowed */
@@ -2324,7 +2327,6 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         p += SHA256_LEN;
 
         /* key_version (1) */
-        assert(opts->key_version == 0x00);
         p += uint8_to_le_bytes(opts->key_version, p);
 
         /* codesep_pos (4) */
