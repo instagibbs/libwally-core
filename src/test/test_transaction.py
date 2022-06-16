@@ -273,7 +273,7 @@ class TransactionTests(unittest.TestCase):
 
         tx = self.tx_deserialize_hex(TX_BIP341_HEX)
         for input_index in range(len(input_spending)):
-            hash_type = input_spending[input_index]["given"]["hashType"] # FIXME iterate over different inputs being spent
+            hash_type = input_spending[input_index]["given"]["hashType"]
             index = input_spending[input_index]["given"]["txinIndex"]
 
             scripts_arr = [bytes(bytearray.fromhex(utxo["scriptPubKey"])) for utxo in utxos]
@@ -296,7 +296,11 @@ class TransactionTests(unittest.TestCase):
             self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
             self.assertEqual(sigHash, h(bytes_out[:out_len]))
 
-
+            # Un-verified sighash for BIP342, just to catch obvious things like segfaults... FIXME with real examples
+            tapleaf_script, tapleaf_script_len = make_cbuffer('00')
+            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
+            codesep_pos = 0x00000001
+            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
 
 if __name__ == '__main__':
     unittest.main()

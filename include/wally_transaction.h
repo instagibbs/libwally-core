@@ -693,7 +693,7 @@ WALLY_CORE_API int wally_tx_get_btc_signature_hash(
  * :param tapleaf_script: BIP342 tapscript being spent.
  * :param tapleaf_script_len: length of tapscript being spent.
  * :param key_version: Version of pubkey in tapscript. Must be set to 0x00.
- * :param codesep_position: BIP342 codeseperator position. Must be set to 0xFFFFFFFF.
+ * :param codesep_position: BIP342 codeseperator position.
  * :param flags: Unused. Must be 0.
  * :param bytes_out: Destination for the signature hash.
  * :param len: Size of ``bytes_out`` in bytes. Must be at least ``SHA256_LEN``.
