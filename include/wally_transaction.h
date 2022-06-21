@@ -41,6 +41,8 @@ extern "C" {
 #define WALLY_SIGHASH_SINGLE       0x03
 #define WALLY_SIGHASH_FORKID       0x40
 #define WALLY_SIGHASH_RANGEPROOF   0x40  /* Liquid/Elements only */
+#define WALLY_SIGHASH_ANYPREVOUT   0x40
+#define WALLY_SIGHASH_ANYPREVOUTANYSCRIPT 0xc0
 #define WALLY_SIGHASH_ANYONECANPAY 0x80
 
 #define WALLY_SIGHASH_MASK         0x1f /* Mask for determining ALL/NONE/SINGLE */
