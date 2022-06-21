@@ -2140,7 +2140,8 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         return ret;
 #endif
 
-    if (opts->key_version != 0x00)
+    /* We allow bip341/342 and bip118 key versions */
+    if (opts->key_version > 0x01)
         return WALLY_EINVAL;
 
     /* Note we assume tx_to_bytes has already validated all inputs */
@@ -2154,6 +2155,15 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         case 0x81:
         case 0x82:
         case 0x83:
+            break;
+        case 0x41:
+        case 0x42:
+        case 0x43:
+        case 0xc1:
+        case 0xc2:
+        case 0xc3:
+            if (opts->key_version != 1)
+                return WALLY_EINVAL;
             break;
         default:
             return WALLY_EINVAL;
