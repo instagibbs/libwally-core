@@ -20,6 +20,9 @@
  */
 static const unsigned char DUMMY_SIG[EC_SIGNATURE_DER_MAX_LEN + 1]; /* +1 for sighash */
 
+/* Mast for input type */
+#define SIGHASH_INPUT_MASK 0xc0
+
 /* Bytes of stack space to use to avoid allocations for tx serializing */
 #define TX_STACK_SIZE 2048
 
@@ -2063,12 +2066,14 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     size_t is_elements = 0;
     size_t scripts_size = 0, running_scripts_size = 0; /* sha_scriptpubkeys */
     const bool has_annex = false;
-    const bool anyonecanpay = opts->sighash & WALLY_SIGHASH_ANYONECANPAY;
 #ifdef BUILD_ELEMENTS
     const bool sh_rangeproof = opts->sighash & WALLY_SIGHASH_RANGEPROOF;
 #endif
     const bool sh_none = (opts->sighash & SIGHASH_MASK) == WALLY_SIGHASH_NONE;
     const bool sh_single = (opts->sighash & SIGHASH_MASK) == WALLY_SIGHASH_SINGLE;
+    const bool anyonecanpay = (opts->sighash & SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYONECANPAY;
+    const bool sh_apo = (opts->sighash & SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYPREVOUT;
+    const bool sh_apoas = (opts->sighash & SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYPREVOUTANYSCRIPT;
     unsigned char *p = bytes_out, *output_p, *msg_p;
     int ret = WALLY_OK;
 
@@ -2113,7 +2118,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     if (sh_single && opts->index >= tx->num_outputs)
         return WALLY_EINVAL;
 
-    /* sighash epoch 0x00 that is prepended to SigMsg */
+    /* sighash epoch 0x00 that is prepended to SigMsg(118) */
     p += uint8_to_le_bytes(0, p);
 
     /* hash_type (1) */
@@ -2164,7 +2169,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
             return WALLY_ENOMEM;
     }
 
-    if (!anyonecanpay) {
+    if (!anyonecanpay && !sh_apo && !sh_apoas) {
         /* sha_prevouts */
         for (i = 0; i < tx->num_inputs; ++i) {
             unsigned char *tmp_p = buff_p + i * (WALLY_TXHASH_LEN + sizeof(uint32_t));
@@ -2242,6 +2247,17 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         p += varbuff_to_bytes(opts->prev_scripts[opts->index], opts->prev_script_lens[opts->index], p);
         /* nSequence (4) */
         p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
+    } else if (sh_apo) {
+        /* amount (8) */
+        p += uint64_to_le_bytes(opts->satoshi, p);
+        /* scriptPubKey (35) */
+        assert(opts->prev_script_lens[opts->index] == 34);
+        p += varbuff_to_bytes(opts->prev_scripts[opts->index], opts->prev_script_lens[opts->index], p);
+        /* nSequence (4) */
+        p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
+    } else if (sh_apoas) {
+        /* nSequence (4) */
+        p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
     } else {
         /* input_index (4) */
         p += uint32_to_le_bytes(opts->index, p);
@@ -2262,19 +2278,20 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     }
 
-    /* Tapscript Extensions */
+    /* Tapscript Extensions FIXME rename bip342 to extensions or something */
     if (opts->bip342) {
-
-        /* tapleaf_hash (32)
-         * hash_TapLeaf(v || compact_size(size of s) || s)
-         */
-        msg_p = buff_p;
-        msg_p[0] = 0xC0; /* leaf_version */
-        msg_p += 1;
-        msg_p += varbuff_to_bytes(opts->tapleaf_script, opts->tapleaf_script_len, msg_p);
-        if (wally_tagged_hash(buff_p, msg_p-buff_p, "TapLeaf", p) != WALLY_OK)
-            goto error;
-        p += SHA256_LEN;
+        if (!sh_apoas) {
+            /* tapleaf_hash (32)
+             * hash_TapLeaf(v || compact_size(size of s) || s)
+             */
+            msg_p = buff_p;
+            msg_p[0] = 0xC0; /* leaf_version */
+            msg_p += 1;
+            msg_p += varbuff_to_bytes(opts->tapleaf_script, opts->tapleaf_script_len, msg_p);
+            if (wally_tagged_hash(buff_p, msg_p-buff_p, "TapLeaf", p) != WALLY_OK)
+                goto error;
+            p += SHA256_LEN;
+        }
 
         /* key_version (1) */
         p += uint8_to_le_bytes(opts->key_version, p);
