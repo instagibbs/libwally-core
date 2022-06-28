@@ -314,6 +314,96 @@ int wally_ec_sig_to_public_key(const unsigned char *bytes, size_t bytes_len,
     return ok ? WALLY_OK : WALLY_EINVAL;
 }
 
+#define IS_SCALAR_VALID(s, s_len) (s && s_len == EC_SCALAR_LEN)
+
+int wally_ec_scalar_add(const unsigned char *scalar, size_t scalar_len,
+                        const unsigned char *operand, size_t operand_len,
+                        unsigned char *bytes_out, size_t len)
+{
+    unsigned char tmp[EC_SCALAR_LEN];
+
+    if (IS_SCALAR_VALID(bytes_out, len))
+        wally_clear(bytes_out, len);
+
+    if (!IS_SCALAR_VALID(scalar, scalar_len) ||
+        !IS_SCALAR_VALID(operand, operand_len) ||
+        !IS_SCALAR_VALID(bytes_out, len))
+        return WALLY_EINVAL;
+
+    if (mem_is_zero(operand, len)) {
+        /* X + 0 = X */
+        if (!mem_is_zero(scalar, scalar_len) && !seckey_verify(scalar))
+            return WALLY_ERROR; /* Outside the group order */
+        memcpy(bytes_out, scalar, len);
+        return WALLY_OK;
+    }
+
+    if (mem_is_zero(scalar, len)) {
+        /* 0 + X = X */
+        if (!seckey_verify(operand))
+            return WALLY_ERROR; /* Outside the group order */
+        memcpy(bytes_out, operand, len);
+        return WALLY_OK;
+    }
+
+    /* Check for addition of the scalars inverse */
+    memcpy(tmp, operand, len);
+    if (!seckey_negate(tmp))
+        return WALLY_ERROR; /* Outside the group order */
+
+    if (!memcmp(scalar, tmp, len)) {
+        /* X + -X = 0 */
+        wally_clear(bytes_out, len);
+        return WALLY_OK;
+    }
+    memcpy(bytes_out, scalar, len);
+    return seckey_tweak_add(bytes_out, scalar) ? WALLY_OK : WALLY_ERROR;
+}
+
+int wally_ec_scalar_subtract(const unsigned char *scalar, size_t scalar_len,
+                             const unsigned char *operand, size_t operand_len,
+                             unsigned char *bytes_out, size_t len)
+{
+    unsigned char tmp[EC_SCALAR_LEN];
+
+    if (IS_SCALAR_VALID(bytes_out, len))
+        wally_clear(bytes_out, len);
+
+    if (!IS_SCALAR_VALID(scalar, scalar_len) ||
+        !IS_SCALAR_VALID(operand, operand_len) ||
+        !IS_SCALAR_VALID(bytes_out, len))
+        return WALLY_EINVAL;
+
+    if (mem_is_zero(operand, len)) {
+        /* X - 0 = X */
+        if (!mem_is_zero(scalar, len) && !seckey_verify(scalar))
+            return WALLY_ERROR; /* Outside the group order */
+        memcpy(bytes_out, scalar, len);
+        return WALLY_OK;
+    }
+
+    if (mem_is_zero(scalar, len)) {
+        /* 0 - X = -X */
+        if (!seckey_verify(operand))
+            return WALLY_ERROR; /* Outside the group order */
+        memcpy(bytes_out, operand, len);
+        return seckey_negate(bytes_out) ? WALLY_OK : WALLY_ERROR;
+    }
+
+    if (!memcmp(scalar, operand, len)) {
+        /* X - X = 0 */
+        wally_clear(bytes_out, len);
+        return WALLY_OK;
+    }
+
+    /* Implement as X + (-Y) */
+    memcpy(tmp, operand, len);
+    if (!seckey_negate(tmp))
+        return WALLY_ERROR; /* Outside the group order */
+    memcpy(bytes_out, scalar, len);
+    return seckey_tweak_add(bytes_out, tmp) ? WALLY_OK : WALLY_ERROR;
+}
+
 static inline size_t varint_len(size_t bytes_len) {
     return bytes_len < 0xfd ? 1u : 3u;
 }

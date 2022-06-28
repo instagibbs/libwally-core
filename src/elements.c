@@ -9,6 +9,8 @@
 #include "secp256k1/include/secp256k1_rangeproof.h"
 #include "src/secp256k1/include/secp256k1_surjectionproof.h"
 #include "src/secp256k1/include/secp256k1_whitelist.h"
+#include "ccan/ccan/endian/endian.h"
+#include "ccan/ccan/build_assert/build_assert.h"
 
 
 static const unsigned char LABEL_STR[] = {
@@ -114,6 +116,54 @@ cleanup:
     clear_and_free(abf_p, values_len * sizeof(unsigned char *));
     clear_and_free(vbf_p, values_len * sizeof(unsigned char *));
     return ret;
+}
+
+int wally_asset_scalar_offset(uint64_t value,
+                              const unsigned char *abf, size_t abf_len,
+                              const unsigned char *vbf, size_t vbf_len,
+                              unsigned char *bytes_out, size_t len)
+{
+    beint64_t tweak[4] = { 0, 0, 0, cpu_to_be64(value) };
+    unsigned char tmp[EC_SCALAR_LEN];
+
+    BUILD_ASSERT(sizeof(tweak) == EC_SCALAR_LEN);
+
+    if (bytes_out && len)
+        wally_clear(bytes_out, len);
+
+    if (!abf || abf_len != BLINDING_FACTOR_LEN ||
+        !vbf || vbf_len != BLINDING_FACTOR_LEN ||
+        !bytes_out || len != EC_SCALAR_LEN)
+        return WALLY_EINVAL;
+
+    if (!value || mem_is_zero(abf, abf_len)) {
+        memcpy(bytes_out, vbf, len); /* Return the value blinder */
+        return WALLY_OK;
+    }
+
+    /* Compute value * asset_blinder */
+    memcpy(bytes_out, abf, abf_len);
+    if (!seckey_tweak_mul(bytes_out, (unsigned char *)&tweak[0]))
+        goto fail;
+
+    if (mem_is_zero(vbf, vbf_len))
+        return WALLY_OK;
+
+    /* Add value_blinder */
+    memcpy(tmp, vbf, len);
+    if (!seckey_negate(tmp))
+        goto fail;
+    if (!memcmp(tmp, bytes_out, len)) {
+        /* The value blinder is equal to -(value * asset_blinder)
+         * Return 0 here to avoid zero checks in seckey_tweak_add */
+        wally_clear(bytes_out, len);
+        return WALLY_OK;
+    }
+    if (seckey_tweak_add(bytes_out, vbf))
+        return WALLY_OK;
+fail:
+    wally_clear(bytes_out, len);
+    return WALLY_ERROR; /* Outside the group order */
 }
 
 int wally_asset_value_commitment(uint64_t value,
