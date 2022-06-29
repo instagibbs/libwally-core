@@ -2069,8 +2069,8 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 #ifdef BUILD_ELEMENTS
     const bool sh_rangeproof = opts->sighash & WALLY_SIGHASH_RANGEPROOF;
 #endif
-    const bool sh_none = (opts->sighash & SIGHASH_MASK) == WALLY_SIGHASH_NONE;
-    const bool sh_single = (opts->sighash & SIGHASH_MASK) == WALLY_SIGHASH_SINGLE;
+    const bool sh_none = (opts->sighash & WALLY_SIGHASH_MASK) == WALLY_SIGHASH_NONE;
+    const bool sh_single = (opts->sighash & WALLY_SIGHASH_MASK) == WALLY_SIGHASH_SINGLE;
     const bool anyonecanpay = (opts->sighash & SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYONECANPAY;
     const bool sh_apo = (opts->sighash & SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYPREVOUT;
     const bool sh_apoas = (opts->sighash & SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYPREVOUTANYSCRIPT;
@@ -3115,7 +3115,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
         goto fail;
 
     /* No support for annex */
-    expected_size = 174 - (!!(opts.sighash & WALLY_SIGHASH_ANYONECANPAY) * 49) - (((opts.sighash & SIGHASH_MASK) == WALLY_SIGHASH_NONE) * 32) + 0*32;
+    expected_size = 174 - (!!(opts.sighash & WALLY_SIGHASH_ANYONECANPAY) * 49) - (((opts.sighash & WALLY_SIGHASH_MASK) == WALLY_SIGHASH_NONE) * 32) + 0*32;
     expected_size += 1; /* sighash epoch which goes prior to SigMsg for usages of TapSighash */
     if (tapleaf_script) {
         /* tapleaf_hash + key_version + codesep_position */
