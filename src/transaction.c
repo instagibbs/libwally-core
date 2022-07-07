@@ -3122,7 +3122,8 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
         expected_size += 32 + 1 + 4;
     }
 
-    if (n2 != expected_size)
+    /* FIXME only doing size checks for non-APO... */
+    if (key_version == 0x00 && n2 != expected_size)
         ret = WALLY_ERROR;
     else
         ret = wally_tagged_hash(buff_p, n2, "TapSighash", bytes_out);
