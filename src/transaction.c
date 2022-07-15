@@ -2125,7 +2125,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     size_t i, prevouts_size, outputs_size, buff_len = sizeof(buff);
     size_t is_elements = 0;
     size_t scripts_size = 0, running_scripts_size = 0; /* sha_scriptpubkeys */
-    const bool has_annex = false;
+    bool has_annex = false;
 #ifdef BUILD_ELEMENTS
     const bool sh_rangeproof = opts->sighash & WALLY_SIGHASH_RANGEPROOF;
 #endif
@@ -2135,6 +2135,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     const bool sh_apo = (opts->sighash & SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYPREVOUT;
     const bool sh_apoas = (opts->sighash & SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYPREVOUTANYSCRIPT;
     unsigned char *p = bytes_out, *output_p, *msg_p;
+    struct wally_tx_witness_stack *witness_stack;
     int ret = WALLY_OK;
 
     (void)flags;
@@ -2287,12 +2288,15 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     /* Data about this input */
 
+    witness_stack = tx->inputs[opts->index].witness;
+    if (witness_stack->num_items >= 2 && witness_stack->items[0].witness_len > 0 && witness_stack->items[0].witness[0] == 0x50) {
+        has_annex = true;
+    } 
+
     /* spend_type (1)
      * ext_flag*2 + annex_present
      */
 
-    /* no annex support yet */
-    assert(!has_annex);
     p += uint8_to_le_bytes((opts->bip342 ? 1*2 : 0*2) + has_annex, p);
 
     if (anyonecanpay) {
@@ -2323,7 +2327,13 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         p += uint32_to_le_bytes(opts->index, p);
     }
 
-    /* sha_annex (not supported) */
+    if (has_annex) {
+        /* sha_annex */
+        ret = wally_sha256(witness_stack->items[0].witness, witness_stack->items[0].witness_len, p, SHA256_LEN);
+        if (ret != WALLY_OK)
+            goto error;
+        p += SHA256_LEN;
+    }
 
     /* Data about this output */
     if (sh_single) {
