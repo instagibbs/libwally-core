@@ -60,6 +60,8 @@ struct tx_serialize_opts
     size_t tapleaf_script_len;       /* Length of executed tapscript */
     uint8_t key_version;             /* BIP342 key version */
     uint32_t codesep_position;       /* BIP342 codeseperation position */
+    const unsigned char *annex;      /* Annex data to be put under sighash */
+    size_t annex_len;                /* Length of sighash data, including 0x50 prefix */
 };
 
 static const unsigned char EMPTY_OUTPUT[9] = {
@@ -2125,7 +2127,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     size_t i, prevouts_size, outputs_size, buff_len = sizeof(buff);
     size_t is_elements = 0;
     size_t scripts_size = 0, running_scripts_size = 0; /* sha_scriptpubkeys */
-    bool has_annex = false;
+    bool has_annex = opts->annex != NULL;
 #ifdef BUILD_ELEMENTS
     const bool sh_rangeproof = opts->sighash & WALLY_SIGHASH_RANGEPROOF;
 #endif
@@ -2135,7 +2137,6 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     const bool sh_apo = (opts->sighash & SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYPREVOUT;
     const bool sh_apoas = (opts->sighash & SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYPREVOUTANYSCRIPT;
     unsigned char *p = bytes_out, *output_p, *msg_p;
-    struct wally_tx_witness_stack *witness_stack;
     int ret = WALLY_OK;
 
     (void)flags;
@@ -2288,11 +2289,6 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     /* Data about this input */
 
-    witness_stack = tx->inputs[opts->index].witness;
-    if (witness_stack->num_items >= 2 && witness_stack->items[0].witness_len > 0 && witness_stack->items[0].witness[0] == 0x50) {
-        has_annex = true;
-    } 
-
     /* spend_type (1)
      * ext_flag*2 + annex_present
      */
@@ -2329,7 +2325,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     if (has_annex) {
         /* sha_annex */
-        ret = wally_sha256(witness_stack->items[0].witness, witness_stack->items[0].witness_len, p, SHA256_LEN);
+        ret = wally_sha256(opts->annex, opts->annex_len, p, SHA256_LEN);
         if (ret != WALLY_OK)
             goto error;
         p += SHA256_LEN;
@@ -3103,7 +3099,7 @@ static int tx_get_signature_hash(const struct wally_tx *tx,
         sighash, tx_sighash, index, script, script_len, satoshi,
         (flags & WALLY_TX_FLAG_USE_WITNESS) ? true : false,
         value, value_len, false /* bip341 */, false /* bip342 */, NULL, NULL, NULL,
-        NULL, 0, 0, 0
+        NULL, 0, 0, 0, /* annex */ NULL, 0
     };
 
     if (!is_valid_tx(tx) || BYTES_INVALID(script, script_len) ||
@@ -3162,6 +3158,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
                                  uint8_t key_version,
                                  uint32_t codesep_position,
                                  uint32_t sighash, uint32_t tx_sighash, uint32_t flags,
+                                 unsigned char *annex, size_t annex_len,
                                  unsigned char *bytes_out, size_t len)
 {
     unsigned char buff[TX_STACK_SIZE], *buff_p = buff;
@@ -3172,7 +3169,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
     const struct tx_serialize_opts opts = {
         sighash, tx_sighash, index, NULL, 0, satoshis[index],
         false, NULL, 0, true /* bip341 */, tapleaf_script != NULL /* bip342 */, satoshis, scripts, script_lens,
-        tapleaf_script, tapleaf_script_len, key_version, codesep_position
+        tapleaf_script, tapleaf_script_len, key_version, codesep_position, annex, annex_len
     };
 
     assert(flags == 0);
@@ -3240,12 +3237,14 @@ int wally_tx_get_btc_taproot_signature_hash(const struct wally_tx *tx,
                                             size_t tapleaf_script_len,
                                             uint8_t key_version,
                                             uint32_t codesep_position,
+                                            unsigned char *annex,
+                                            size_t annex_len,
                                             uint32_t flags,
                                             unsigned char *bytes_out,
                                             size_t len)
 {
     return tx_get_taproot_signature_hash(tx, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len,
-        key_version, codesep_position, hash_type, hash_type, flags, bytes_out, len);
+        key_version, codesep_position, hash_type, hash_type, flags, annex, annex_len, bytes_out, len);
 }
 
 int wally_tx_get_elements_signature_hash(const struct wally_tx *tx,

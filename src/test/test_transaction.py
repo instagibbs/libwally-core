@@ -290,19 +290,21 @@ class TransactionTests(unittest.TestCase):
             codesep_pos = 0xFFFFFFFF
             flags = 0
             bytes_out, out_len = make_cbuffer('00'*32)
+            annex = None
+            annex_len = 0
 
             sigHash = utf8(input_spending[input_index]["intermediary"]["sigHash"])
 
-            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
+            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, annex, annex_len, flags, bytes_out, out_len))
             self.assertEqual(sigHash, h(bytes_out[:out_len]))
 
             # Un-verified sighash for BIP342, just to catch obvious things like segfaults... FIXME with real examples
             tapleaf_script, tapleaf_script_len = make_cbuffer('00')
-            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
+            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, annex, annex_len, flags, bytes_out, out_len))
             codesep_pos = 0x00000001
-            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
-            key_version = 1 # Only 0 is allowed
-            self.assertEqual(WALLY_EINVAL, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, flags, bytes_out, out_len))
+            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, annex, annex_len, flags, bytes_out, out_len))
+            key_version = 2 # Only 0 and 1 are allowed
+            self.assertEqual(WALLY_EINVAL, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, annex, annex_len, flags, bytes_out, out_len))
 
 if __name__ == '__main__':
     unittest.main()
