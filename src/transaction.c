@@ -2325,7 +2325,9 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     if (has_annex) {
         /* sha_annex */
-        ret = wally_sha256(opts->annex, opts->annex_len, p, SHA256_LEN);
+        unsigned char *tmp_p = buff_p;
+        int ser_annex_len = varbuff_to_bytes(opts->annex, opts->annex_len, tmp_p);
+        ret = wally_sha256(tmp_p, ser_annex_len, p, SHA256_LEN);
         if (ret != WALLY_OK)
             goto error;
         p += SHA256_LEN;
