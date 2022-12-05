@@ -2344,7 +2344,8 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
             msg_p[0] = 0xC0; /* leaf_version */
             msg_p += 1;
             msg_p += varbuff_to_bytes(opts->tapleaf_script, opts->tapleaf_script_len, msg_p);
-            if (wally_tagged_hash(buff_p, msg_p-buff_p, "TapLeaf", p) != WALLY_OK)
+            ret = wally_bip340_tagged_hash(buff_p, msg_p-buff_p, "TapLeaf", p, SHA256_LEN);
+            if (ret != WALLY_OK)
                 goto error;
             p += SHA256_LEN;
         }
@@ -3149,7 +3150,8 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
                                  uint32_t codesep_position,
                                  uint32_t sighash, uint32_t tx_sighash,
                                  unsigned char *annex, size_t annex_len,
-                                 unsigned char *hash_out)
+                                 unsigned char *bytes_out,
+                                 size_t len)
 {
     unsigned char buff[TX_STACK_SIZE], *buff_p = buff;
     size_t n, n2;
@@ -3181,7 +3183,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
     if (key_version == 0x00 && n2 != expected_size) {
         ret = WALLY_ERROR;
     } else {
-        ret = wally_tagged_hash(buff_p, n2, "TapSighash", hash_out);
+        ret = wally_bip340_tagged_hash(buff_p, n2, "TapSighash", bytes_out, len);
     }
 
 fail:
@@ -3227,10 +3229,11 @@ int wally_tx_get_btc_taproot_signature_hash(const struct wally_tx *tx,
                                             uint32_t codesep_position,
                                             unsigned char *annex,
                                             size_t annex_len,
-                                            unsigned char *hash_out)
+                                            unsigned char *bytes_out,
+                                            size_t len)
 {
     return tx_get_taproot_signature_hash(tx, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len,
-        key_version, codesep_position, hash_type, hash_type, annex, annex_len, hash_out);
+        key_version, codesep_position, hash_type, hash_type, annex, annex_len, bytes_out, len);
 }
 
 int wally_tx_get_elements_signature_hash(const struct wally_tx *tx,

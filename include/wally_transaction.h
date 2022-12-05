@@ -689,8 +689,9 @@ WALLY_CORE_API int wally_tx_get_btc_signature_hash(
  * :param codesep_position: BIP342 codeseperator position.
  * :param annex: BIP341 annex. NULL if none.
  * :param annex_len: Length of annex.
- * :param bytes_out: Destination for the signature hash which must be at least 32 bytes.
- */
+ * :param bytes_out: Destination for the resulting signature hash.
+ * FIXED_SIZED_OUTPUT(len, bytes_out, SHA256_LEN)
+*/
 WALLY_CORE_API int wally_tx_get_btc_taproot_signature_hash(
     const struct wally_tx *tx,
     uint8_t hash_type,
@@ -704,7 +705,8 @@ WALLY_CORE_API int wally_tx_get_btc_taproot_signature_hash(
     uint32_t codesep_position,
     unsigned char *annex,
     size_t annex_len,
-    unsigned char *hash_out);
+    unsigned char *bytes_out,
+    size_t len);
 
 /**
  * Create a transaction for signing and return its hash.
