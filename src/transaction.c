@@ -50,7 +50,7 @@ struct tx_serialize_opts
     size_t *prev_script_lens;        /* Script lengths for BIP341/342 sha_scrippubkeys */
     const unsigned char *tapleaf_script;   /* Executed BIP342 tapscript */
     size_t tapleaf_script_len;       /* Length of executed tapscript */
-    uint8_t key_version;             /* BIP342 key version */
+    uint32_t key_version;             /* BIP342 key version */
     uint32_t codesep_position;       /* BIP342 codeseperation position */
     const unsigned char *annex;      /* Annex data to be put under sighash */
     size_t annex_len;                /* Length of sighash data, including 0x50 prefix */
@@ -2352,7 +2352,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         }
 
         /* key_version (1) */
-        p += uint8_to_le_bytes(opts->key_version, p);
+        p += uint8_to_le_bytes(opts->key_version & 0xff, p);
 
         /* codesep_pos (4) */
         p += uint32_to_le_bytes(opts->codesep_position, p);
@@ -3147,7 +3147,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
                                  const uint64_t *values, size_t num_values,
                                  const unsigned char *tapleaf_script,
                                  size_t tapleaf_script_len,
-                                 uint8_t key_version,
+                                 uint32_t key_version,
                                  uint32_t codesep_position,
                                  uint32_t sighash, uint32_t tx_sighash,
                                  const unsigned char *annex, size_t annex_len,
@@ -3219,7 +3219,6 @@ int wally_tx_get_btc_signature_hash(const struct wally_tx *tx, size_t index,
 }
 
 int wally_tx_get_btc_taproot_signature_hash(const struct wally_tx *tx,
-                                            uint8_t hash_type,
                                             size_t index,
                                             const unsigned char **scripts,
                                             size_t *script_lens,
@@ -3227,15 +3226,19 @@ int wally_tx_get_btc_taproot_signature_hash(const struct wally_tx *tx,
                                             size_t num_values,
                                             const unsigned char *tapleaf_script,
                                             size_t tapleaf_script_len,
-                                            uint8_t key_version,
+                                            uint32_t key_version,
                                             uint32_t codesep_position,
                                             const unsigned char *annex,
                                             size_t annex_len,
+                                            uint32_t sighash,
+                                            uint32_t flags,
                                             unsigned char *bytes_out,
                                             size_t len)
 {
+    if (flags)
+        return WALLY_EINVAL;
     return tx_get_taproot_signature_hash(tx, index, scripts, script_lens, values, num_values, tapleaf_script, tapleaf_script_len,
-        key_version, codesep_position, hash_type, hash_type, annex, annex_len, bytes_out, len);
+        key_version, codesep_position, sighash, sighash, annex, annex_len, bytes_out, len);
 }
 
 int wally_tx_get_elements_signature_hash(const struct wally_tx *tx,

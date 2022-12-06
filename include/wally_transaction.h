@@ -678,7 +678,6 @@ WALLY_CORE_API int wally_tx_get_btc_signature_hash(
  * Create a BTC transaction for taproot signing and return its hash.
  *
  * :param tx: The transaction to generate the signature hash from.
- * :param hash_type: The BIP341 hash_type to use, via ``WALLY_SIGHASH_``.
  * :param index: The input index of the input being signed for.
  * :param scripts: Array of the (unprefixed) scriptCodes for the inputs being signed.
  * :param script_lens: Array of sizes of ``script`` in bytes.
@@ -690,12 +689,13 @@ WALLY_CORE_API int wally_tx_get_btc_signature_hash(
  * :param codesep_position: BIP342 codeseperator position.
  * :param annex: BIP341 annex, or NULL if none.
  * :param annex_len: Length of ``annex`` in bytes.
+ * :param sighash: ``WALLY_SIGHASH_`` flags specifying the type of signature desired.
+ * :param flags: Flags controlling signature generation. Must be 0.
  * :param bytes_out: Destination for the resulting signature hash.
  * FIXED_SIZED_OUTPUT(len, bytes_out, SHA256_LEN)
 */
 WALLY_CORE_API int wally_tx_get_btc_taproot_signature_hash(
     const struct wally_tx *tx,
-    uint8_t hash_type,
     size_t index,
     const unsigned char **scripts,
     size_t *script_lens,
@@ -703,10 +703,12 @@ WALLY_CORE_API int wally_tx_get_btc_taproot_signature_hash(
     size_t num_values,
     const unsigned char *tapleaf_script,
     size_t tapleaf_script_len,
-    uint8_t key_version,
+    uint32_t key_version,
     uint32_t codesep_position,
     const unsigned char *annex,
     size_t annex_len,
+    uint32_t sighash,
+    uint32_t flags,
     unsigned char *bytes_out,
     size_t len);
 
