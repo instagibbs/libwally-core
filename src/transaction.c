@@ -2241,6 +2241,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
             running_scripts_size += varbuff_to_bytes(opts->prev_scripts[i], opts->prev_script_lens[i], tmp_p);
         }
         if (running_scripts_size != scripts_size) {
+            ret = WALLY_EINVAL;
             goto error;
         }
         if ((ret = wally_sha256(buff_p, running_scripts_size, p, SHA256_LEN)) != WALLY_OK)
@@ -2289,6 +2290,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         p += uint64_to_le_bytes(opts->satoshi, p);
         /* scriptPubKey (35) */
         if (opts->prev_script_lens[opts->index] != 34) {
+            ret = WALLY_EINVAL;
             goto error;
         }
         p += varbuff_to_bytes(opts->prev_scripts[opts->index], opts->prev_script_lens[opts->index], p);
@@ -2299,6 +2301,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         p += uint64_to_le_bytes(opts->satoshi, p);
         /* scriptPubKey (35) */
         if (opts->prev_script_lens[opts->index] != 34) {
+            ret = WALLY_EINVAL;
             goto error;
         }
         p += varbuff_to_bytes(opts->prev_scripts[opts->index], opts->prev_script_lens[opts->index], p);
