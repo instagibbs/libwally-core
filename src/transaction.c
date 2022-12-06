@@ -4,6 +4,8 @@
 
 #include <include/wally_crypto.h>
 #include <include/wally_transaction.h>
+#include <include/wally_map.h>
+#include <include/wally_script.h>
 
 #include <limits.h>
 #include "transaction_int.h"
@@ -46,9 +48,8 @@ struct tx_serialize_opts
     bool tapscript_extensions;       /* Serialize for BIP342 tapscript hash */
     const uint64_t *prev_satoshis;   /* Output amounts for BIP341/342 sha_amounts */
     size_t num_prev_satoshis;        /* Number of items in prev_satoshis */
-    const unsigned char **prev_scripts; /* Output scripts for BIP341/342 sha_scriptpubkeys  */
-    size_t *prev_script_lens;        /* Script lengths for BIP341/342 sha_scrippubkeys */
-    const unsigned char *tapleaf_script;   /* Executed BIP342 tapscript */
+    const struct wally_map *scripts; /* Output scripts for BIP341/342 sha_scriptpubkeys  */
+    const unsigned char *tapleaf_script; /* Executed BIP342 tapscript */
     size_t tapleaf_script_len;       /* Length of executed tapscript */
     uint32_t key_version;             /* BIP342 key version */
     uint32_t codesep_position;       /* BIP342 codeseperation position */
@@ -2178,8 +2179,13 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     /* Allocate stack space(over-estimate) if the buffer is too small */
     prevouts_size = tx->num_inputs * (WALLY_TXHASH_LEN + sizeof(uint32_t));
-    for (i=0; i < tx->num_inputs; ++i) {
-        scripts_size += varbuff_get_length(opts->prev_script_lens[i]);
+    for (i = 0; i < tx->num_inputs; ++i) {
+        const struct wally_map_item *script = wally_map_get_integer(opts->scripts, i);
+        if (!script) {
+            ret = WALLY_EINVAL;
+            goto error;
+        }
+        scripts_size += varbuff_get_length(script->value_len);
     }
 
     if (sh_none)
@@ -2227,7 +2233,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         p += SHA256_LEN;
 
         /* sha_amounts */
-        for (i=0; i< tx->num_inputs; ++i) {
+        for (i = 0; i < tx->num_inputs; ++i) {
             unsigned char *tmp_p = buff_p + i * sizeof(uint64_t);
             uint64_to_le_bytes(opts->prev_satoshis[i], tmp_p);
         }
@@ -2236,9 +2242,14 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         p += SHA256_LEN;
 
         /* sha_scriptpubkeys */
-        for (i=0; i< tx->num_inputs; ++i) {
-            unsigned char *tmp_p = buff_p + running_scripts_size;
-            running_scripts_size += varbuff_to_bytes(opts->prev_scripts[i], opts->prev_script_lens[i], tmp_p);
+        for (i = 0; i < tx->num_inputs; ++i) {
+            const struct wally_map_item *script = wally_map_get_integer(opts->scripts, i);
+            if (!script) {
+                ret = WALLY_EINVAL;
+                goto error;
+            }
+            running_scripts_size += varbuff_to_bytes(script->value, script->value_len,
+                                                     buff_p + running_scripts_size);
         }
         if (running_scripts_size != scripts_size) {
             ret = WALLY_EINVAL;
@@ -2282,6 +2293,11 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     p += uint8_to_le_bytes((opts->tapscript_extensions ? 1*2 : 0*2) + has_annex, p);
 
     if (anyonecanpay) {
+        const struct wally_map_item *script = wally_map_get_integer(opts->scripts, opts->index);
+        if (!script || !script->value || script->value_len != WALLY_SCRIPTPUBKEY_P2TR_LEN) {
+            ret = WALLY_EINVAL;
+            goto error;
+        }
         /* outpoint (36) */
         memcpy(p, tx->inputs[opts->index].txhash, WALLY_TXHASH_LEN);
         p += WALLY_TXHASH_LEN;
@@ -2289,22 +2305,19 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         /* amount (8) */
         p += uint64_to_le_bytes(opts->satoshi, p);
         /* scriptPubKey (35) */
-        if (opts->prev_script_lens[opts->index] != 34) {
-            ret = WALLY_EINVAL;
-            goto error;
-        }
-        p += varbuff_to_bytes(opts->prev_scripts[opts->index], opts->prev_script_lens[opts->index], p);
+        p += varbuff_to_bytes(script->value, script->value_len, p);
         /* nSequence (4) */
         p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
     } else if (sh_apo) {
-        /* amount (8) */
-        p += uint64_to_le_bytes(opts->satoshi, p);
-        /* scriptPubKey (35) */
-        if (opts->prev_script_lens[opts->index] != 34) {
+        const struct wally_map_item *script = wally_map_get_integer(opts->scripts, opts->index);
+        if (!script || !script->value || script->value_len != WALLY_SCRIPTPUBKEY_P2TR_LEN) {
             ret = WALLY_EINVAL;
             goto error;
         }
-        p += varbuff_to_bytes(opts->prev_scripts[opts->index], opts->prev_script_lens[opts->index], p);
+        /* amount (8) */
+        p += uint64_to_le_bytes(opts->satoshi, p);
+        /* scriptPubKey (35) */
+        p += varbuff_to_bytes(script->value, script->value_len, p);
         /* nSequence (4) */
         p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
     } else if (sh_apoas) {
@@ -3089,12 +3102,13 @@ static int tx_get_signature_hash(const struct wally_tx *tx,
     unsigned char buff[TX_STACK_SIZE], *buff_p = buff;
     size_t n, n2;
     size_t is_elements = 0;
+    const bool is_bip341 = false, have_extensions = false;
     int ret;
     const struct tx_serialize_opts opts = {
         sighash, tx_sighash, index, script, script_len, satoshi,
         (flags & WALLY_TX_FLAG_USE_WITNESS) ? true : false,
-        value, value_len, false /* bip341 */, false /* tapscript_extensions */, NULL, 0, NULL, NULL,
-        NULL, 0, 0, 0, /* annex */ NULL, 0
+        value, value_len, is_bip341, have_extensions, NULL, 0, NULL,
+        NULL, 0, 0, 0, NULL, 0
     };
 
     if (!is_valid_tx(tx) || BYTES_INVALID(script, script_len) ||
@@ -3146,7 +3160,7 @@ fail:
 
 static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
                                  size_t index,
-                                 const unsigned char **scripts, size_t *script_lens,
+                                 const struct wally_map *scripts,
                                  const uint64_t *values, size_t num_values,
                                  const unsigned char *tapleaf_script,
                                  size_t tapleaf_script_len,
@@ -3164,7 +3178,7 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
     size_t expected_size = 0;
     const struct tx_serialize_opts opts = {
         sighash, tx_sighash, index, NULL, 0, values[index],
-        false, NULL, 0, true /* bip341 */, tapleaf_script != NULL /* tapscript_extensions */, values, num_values, scripts, script_lens,
+        false, NULL, 0, true /* bip341 */, tapleaf_script != NULL /* tapscript_extensions */, values, num_values, scripts,
         tapleaf_script, tapleaf_script_len, key_version, codesep_position, annex, annex_len
     };
 
@@ -3223,8 +3237,7 @@ int wally_tx_get_btc_signature_hash(const struct wally_tx *tx, size_t index,
 
 int wally_tx_get_btc_taproot_signature_hash(const struct wally_tx *tx,
                                             size_t index,
-                                            const unsigned char **scripts,
-                                            size_t *script_lens,
+                                            const struct wally_map *scripts,
                                             const uint64_t *values,
                                             size_t num_values,
                                             const unsigned char *tapleaf_script,
@@ -3240,7 +3253,7 @@ int wally_tx_get_btc_taproot_signature_hash(const struct wally_tx *tx,
 {
     if (flags)
         return WALLY_EINVAL;
-    return tx_get_taproot_signature_hash(tx, index, scripts, script_lens, values, num_values, tapleaf_script, tapleaf_script_len,
+    return tx_get_taproot_signature_hash(tx, index, scripts, values, num_values, tapleaf_script, tapleaf_script_len,
         key_version, codesep_position, sighash, sighash, annex, annex_len, bytes_out, len);
 }
 

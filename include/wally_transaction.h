@@ -67,6 +67,7 @@ extern "C" {
 #define WALLY_TX_PEGIN_FLAG (1 << 30)
 #define WALLY_TX_INDEX_MASK 0x3fffffff
 
+struct wally_map;
 #ifdef SWIG
 struct wally_tx_input;
 struct wally_tx_output;
@@ -679,8 +680,7 @@ WALLY_CORE_API int wally_tx_get_btc_signature_hash(
  *
  * :param tx: The transaction to generate the signature hash from.
  * :param index: The input index of the input being signed for.
- * :param scripts: Array of the (unprefixed) scriptCodes for the inputs being signed.
- * :param script_lens: Array of sizes of ``script`` in bytes.
+ * :param scripts: Map of input index to (unprefixed) scriptCodes for each input.
  * :param values: The value in satoshi for each input in ``tx``.
  * :param num_values: The number of elements in ``values``.
  * :param tapleaf_script: BIP342 tapscript being spent.
@@ -697,8 +697,7 @@ WALLY_CORE_API int wally_tx_get_btc_signature_hash(
 WALLY_CORE_API int wally_tx_get_btc_taproot_signature_hash(
     const struct wally_tx *tx,
     size_t index,
-    const unsigned char **scripts,
-    size_t *script_lens,
+    const struct wally_map *scripts,
     const uint64_t *values,
     size_t num_values,
     const unsigned char *tapleaf_script,
