@@ -1,6 +1,4 @@
-import ctypes
 import json
-import struct
 import unittest
 from util import *
 
@@ -261,6 +259,7 @@ class TransactionTests(unittest.TestCase):
             self.assertEqual(WALLY_OK, wally_tx_get_btc_signature_hash(*args))
             self.assertEqual(expected, h(out[:out_len]))
 
+
     def test_get_taproot_signature_hash(self):
         """Testing function to get the taproot signature hash"""
 
@@ -268,20 +267,27 @@ class TransactionTests(unittest.TestCase):
             test_vectors = json.load(f)
 
         keyspend_case = test_vectors["keyPathSpending"][0]
-        utxos = keyspend_case["given"]["utxosSpent"]
         input_spending = keyspend_case["inputSpending"]
+        utxos = keyspend_case["given"]["utxosSpent"]
+        num_utxos = len(utxos)
+
+        scripts = pointer(wally_map())
+        wally_map_init_alloc(num_utxos, None, scripts)
+        values = (c_uint64 * num_utxos)()
+        num_values = num_utxos
+
+        for i, utxo in enumerate(utxos):
+            script, script_len = make_cbuffer(utxo["scriptPubKey"])
+            wally_map_add_integer(scripts, i, script, script_len)
+            values[i] = int(utxo["amountSats"])
 
         tx = self.tx_deserialize_hex(TX_BIP341_HEX)
+        bytes_out, out_len = make_cbuffer('00'*32)
+
         for input_index in range(len(input_spending)):
-            hash_type = input_spending[input_index]["given"]["hashType"]
+            sighash = input_spending[input_index]["given"]["hashType"]
             index = input_spending[input_index]["given"]["txinIndex"]
-
-            scripts_arr = [bytes(bytearray.fromhex(utxo["scriptPubKey"])) for utxo in utxos]
-            scripts = (ctypes.c_char_p * len(scripts_arr))()
-            scripts[:] = scripts_arr
-
-            script_lens = (b'').join([struct.pack("N", len(bytearray.fromhex(utxo["scriptPubKey"]))) for utxo in utxos])
-            satoshis = (b'').join([struct.pack("<Q", utxo["amountSats"]) for utxo in utxos])
+            expected = utf8(input_spending[input_index]["intermediary"]["sigHash"])
 
             # Unused in these tests
             tapleaf_script = None
@@ -289,24 +295,30 @@ class TransactionTests(unittest.TestCase):
             key_version = 0
             codesep_pos = 0xFFFFFFFF
             flags = 0
-            bytes_out, out_len = make_cbuffer('00'*32)
             annex = None
             annex_len = 0
 
-            sigHash = utf8(input_spending[input_index]["intermediary"]["sigHash"])
+            fn = wally_tx_get_btc_taproot_signature_hash
+            args = [tx, index, scripts, values, num_values, tapleaf_script, tapleaf_script_len,
+                    key_version, codesep_pos, annex, annex_len, sighash, 0, bytes_out, out_len]
 
-            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, annex, annex_len, bytes_out))
-            self.assertEqual(sigHash, h(bytes_out[:out_len]))
+            self.assertEqual(wally_tx_get_btc_taproot_signature_hash(*args), WALLY_OK)
+            self.assertEqual(expected, h(bytes_out[:out_len]))
 
             # Un-verified sighash for BIP342, just to catch obvious user errors
             tapleaf_script, tapleaf_script_len = make_cbuffer('00')
-            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, annex, annex_len, bytes_out))
+            args[5] = tapleaf_script
+            args[6] = tapleaf_script_len
+            self.assertEqual(wally_tx_get_btc_taproot_signature_hash(*args), WALLY_OK)
+
             codesep_pos = 0x00000001
-            self.assertEqual(WALLY_OK, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, annex, annex_len, bytes_out))
+            args[8] = codesep_pos
+            self.assertEqual(wally_tx_get_btc_taproot_signature_hash(*args), WALLY_OK)
+
             key_version = 2 # Only 0 and 1 are allowed
-            self.assertEqual(WALLY_EINVAL, wally_tx_get_btc_taproot_signature_hash(tx, hash_type, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len, key_version, codesep_pos, annex, annex_len, bytes_out))
+            args[7] = key_version
+            self.assertEqual(wally_tx_get_btc_taproot_signature_hash(*args), WALLY_EINVAL)
 
 
 if __name__ == '__main__':
     unittest.main()
-
