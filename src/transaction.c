@@ -45,7 +45,7 @@ struct tx_serialize_opts
     bool bip341;                     /* Serialize for BIP341 taproot hash */
     bool tapscript_extensions;       /* Serialize for BIP342 tapscript hash */
     const uint64_t *prev_satoshis;   /* Output amounts for BIP341/342 sha_amounts */
-    size_t *num_prev_satoshis;       /* Number of items in prev_satoshis */
+    size_t num_prev_satoshis;        /* Number of items in prev_satoshis */
     const unsigned char **prev_scripts; /* Output scripts for BIP341/342 sha_scriptpubkeys  */
     size_t *prev_script_lens;        /* Script lengths for BIP341/342 sha_scrippubkeys */
     const unsigned char *tapleaf_script;   /* Executed BIP342 tapscript */
@@ -3144,13 +3144,13 @@ fail:
 static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
                                  size_t index,
                                  const unsigned char **scripts, size_t *script_lens,
-                                 const uint64_t *values, size_t *num_values,
+                                 const uint64_t *values, size_t num_values,
                                  const unsigned char *tapleaf_script,
                                  size_t tapleaf_script_len,
                                  uint8_t key_version,
                                  uint32_t codesep_position,
                                  uint32_t sighash, uint32_t tx_sighash,
-                                 unsigned char *annex, size_t annex_len,
+                                 const unsigned char *annex, size_t annex_len,
                                  unsigned char *bytes_out,
                                  size_t len)
 {
@@ -3229,7 +3229,7 @@ int wally_tx_get_btc_taproot_signature_hash(const struct wally_tx *tx,
                                             size_t tapleaf_script_len,
                                             uint8_t key_version,
                                             uint32_t codesep_position,
-                                            unsigned char *annex,
+                                            const unsigned char *annex,
                                             size_t annex_len,
                                             unsigned char *bytes_out,
                                             size_t len)

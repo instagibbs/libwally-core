@@ -681,15 +681,15 @@ WALLY_CORE_API int wally_tx_get_btc_signature_hash(
  * :param hash_type: The BIP341 hash_type to use, via ``WALLY_SIGHASH_``.
  * :param index: The input index of the input being signed for.
  * :param scripts: Array of the (unprefixed) scriptCodes for the inputs being signed.
- * :param script_lens: Array of sizes of ``script``s in bytes.
- * :param values: The value in satoshi for each input in `tx`.
- * :param num_values: The number of elements in `values`.
+ * :param script_lens: Array of sizes of ``script`` in bytes.
+ * :param values: The value in satoshi for each input in ``tx``.
+ * :param num_values: The number of elements in ``values``.
  * :param tapleaf_script: BIP342 tapscript being spent.
  * :param tapleaf_script_len: length of tapscript being spent.
  * :param key_version: Version of pubkey in tapscript. Must be set to 0x00 or 0x01.
  * :param codesep_position: BIP342 codeseperator position.
- * :param annex: BIP341 annex. NULL if none.
- * :param annex_len: Length of annex.
+ * :param annex: BIP341 annex, or NULL if none.
+ * :param annex_len: Length of ``annex`` in bytes.
  * :param bytes_out: Destination for the resulting signature hash.
  * FIXED_SIZED_OUTPUT(len, bytes_out, SHA256_LEN)
 */
@@ -705,7 +705,7 @@ WALLY_CORE_API int wally_tx_get_btc_taproot_signature_hash(
     size_t tapleaf_script_len,
     uint8_t key_version,
     uint32_t codesep_position,
-    unsigned char *annex,
+    const unsigned char *annex,
     size_t annex_len,
     unsigned char *bytes_out,
     size_t len);
