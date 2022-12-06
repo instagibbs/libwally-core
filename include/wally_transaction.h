@@ -682,7 +682,8 @@ WALLY_CORE_API int wally_tx_get_btc_signature_hash(
  * :param index: The input index of the input being signed for.
  * :param scripts: Array of the (unprefixed) scriptCodes for the inputs being signed.
  * :param script_lens: Array of sizes of ``script``s in bytes.
- * :param satoshis: Array of amounts spent.
+ * :param values: The value in satoshi for each input in `tx`.
+ * :param num_values: The number of elements in `values`.
  * :param tapleaf_script: BIP342 tapscript being spent.
  * :param tapleaf_script_len: length of tapscript being spent.
  * :param key_version: Version of pubkey in tapscript. Must be set to 0x00 or 0x01.
@@ -698,7 +699,8 @@ WALLY_CORE_API int wally_tx_get_btc_taproot_signature_hash(
     size_t index,
     const unsigned char **scripts,
     size_t *script_lens,
-    uint64_t *satoshis,
+    const uint64_t *values,
+    size_t num_values,
     const unsigned char *tapleaf_script,
     size_t tapleaf_script_len,
     uint8_t key_version,

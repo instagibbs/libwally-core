@@ -44,7 +44,8 @@ struct tx_serialize_opts
     size_t value_len;                /* length of 'value' in bytes */
     bool bip341;                     /* Serialize for BIP341 taproot hash */
     bool tapscript_extensions;       /* Serialize for BIP342 tapscript hash */
-    uint64_t *prev_satoshis;         /* Output amounts for BIP341/342 sha_amounts */
+    const uint64_t *prev_satoshis;   /* Output amounts for BIP341/342 sha_amounts */
+    size_t *num_prev_satoshis;       /* Number of items in prev_satoshis */
     const unsigned char **prev_scripts; /* Output scripts for BIP341/342 sha_scriptpubkeys  */
     size_t *prev_script_lens;        /* Script lengths for BIP341/342 sha_scrippubkeys */
     const unsigned char *tapleaf_script;   /* Executed BIP342 tapscript */
@@ -3089,7 +3090,7 @@ static int tx_get_signature_hash(const struct wally_tx *tx,
     const struct tx_serialize_opts opts = {
         sighash, tx_sighash, index, script, script_len, satoshi,
         (flags & WALLY_TX_FLAG_USE_WITNESS) ? true : false,
-        value, value_len, false /* bip341 */, false /* tapscript_extensions */, NULL, NULL, NULL,
+        value, value_len, false /* bip341 */, false /* tapscript_extensions */, NULL, 0, NULL, NULL,
         NULL, 0, 0, 0, /* annex */ NULL, 0
     };
 
@@ -3143,7 +3144,7 @@ fail:
 static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
                                  size_t index,
                                  const unsigned char **scripts, size_t *script_lens,
-                                 uint64_t *satoshis,
+                                 const uint64_t *values, size_t *num_values,
                                  const unsigned char *tapleaf_script,
                                  size_t tapleaf_script_len,
                                  uint8_t key_version,
@@ -3159,8 +3160,8 @@ static int tx_get_taproot_signature_hash(const struct wally_tx *tx,
     int ret;
     size_t expected_size = 0;
     const struct tx_serialize_opts opts = {
-        sighash, tx_sighash, index, NULL, 0, satoshis[index],
-        false, NULL, 0, true /* bip341 */, tapleaf_script != NULL /* tapscript_extensions */, satoshis, scripts, script_lens,
+        sighash, tx_sighash, index, NULL, 0, values[index],
+        false, NULL, 0, true /* bip341 */, tapleaf_script != NULL /* tapscript_extensions */, values, num_values, scripts, script_lens,
         tapleaf_script, tapleaf_script_len, key_version, codesep_position, annex, annex_len
     };
 
@@ -3222,7 +3223,8 @@ int wally_tx_get_btc_taproot_signature_hash(const struct wally_tx *tx,
                                             size_t index,
                                             const unsigned char **scripts,
                                             size_t *script_lens,
-                                            uint64_t *satoshis,
+                                            const uint64_t *values,
+                                            size_t num_values,
                                             const unsigned char *tapleaf_script,
                                             size_t tapleaf_script_len,
                                             uint8_t key_version,
@@ -3232,7 +3234,7 @@ int wally_tx_get_btc_taproot_signature_hash(const struct wally_tx *tx,
                                             unsigned char *bytes_out,
                                             size_t len)
 {
-    return tx_get_taproot_signature_hash(tx, index, scripts, script_lens, satoshis, tapleaf_script, tapleaf_script_len,
+    return tx_get_taproot_signature_hash(tx, index, scripts, script_lens, values, num_values, tapleaf_script, tapleaf_script_len,
         key_version, codesep_position, hash_type, hash_type, annex, annex_len, bytes_out, len);
 }
 
