@@ -2140,20 +2140,20 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     /* No undefined hash_type values allowed */
     switch (opts->sighash) {
-        case 0x00:
-        case 0x01:
-        case 0x02:
-        case 0x03:
-        case 0x81:
-        case 0x82:
-        case 0x83:
+        case WALLY_SIGHASH_DEFAULT:
+        case WALLY_SIGHASH_ALL:
+        case WALLY_SIGHASH_NONE:
+        case WALLY_SIGHASH_SINGLE:
+        case WALLY_SIGHASH_ALL | WALLY_SIGHASH_ANYONECANPAY:
+        case WALLY_SIGHASH_NONE | WALLY_SIGHASH_ANYONECANPAY:
+        case WALLY_SIGHASH_SINGLE | WALLY_SIGHASH_ANYONECANPAY:
             break;
-        case 0x41:
-        case 0x42:
-        case 0x43:
-        case 0xc1:
-        case 0xc2:
-        case 0xc3:
+        case WALLY_SIGHASH_ALL | WALLY_SIGHASH_ANYPREVOUT:
+        case WALLY_SIGHASH_NONE | WALLY_SIGHASH_ANYPREVOUT:
+        case WALLY_SIGHASH_SINGLE | WALLY_SIGHASH_ANYPREVOUT:
+        case WALLY_SIGHASH_ALL | WALLY_SIGHASH_ANYPREVOUT | WALLY_SIGHASH_ANYONECANPAY:
+        case WALLY_SIGHASH_NONE | WALLY_SIGHASH_ANYPREVOUT | WALLY_SIGHASH_ANYONECANPAY:
+        case WALLY_SIGHASH_SINGLE | WALLY_SIGHASH_ANYPREVOUT | WALLY_SIGHASH_ANYONECANPAY:
             if (opts->key_version != 1)
                 return WALLY_EINVAL;
             break;
