@@ -213,6 +213,7 @@ tx_clone = tx_clone_alloc
 tx_get_txid = _wrap_bin(tx_get_txid, WALLY_TXHASH_LEN)
 tx_to_bytes = _wrap_bin(tx_to_bytes, tx_get_length)
 tx_get_btc_signature_hash = _wrap_bin(tx_get_btc_signature_hash, SHA256_LEN)
+tx_get_btc_taproot_signature_hash = _wrap_bin(tx_get_btc_taproot_signature_hash, SHA256_LEN)
 tx_get_signature_hash = _wrap_bin(tx_get_signature_hash, SHA256_LEN)
 ae_host_commit_from_bytes = _wrap_bin(ae_host_commit_from_bytes, WALLY_HOST_COMMITMENT_LEN)
 ae_signer_commit_from_bytes = _wrap_bin(ae_signer_commit_from_bytes, WALLY_S2C_OPENING_LEN)
