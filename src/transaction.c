@@ -2118,8 +2118,8 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     const bool sh_none = (sighash & WALLY_SIGHASH_MASK) == WALLY_SIGHASH_NONE;
     const bool sh_single = (sighash & WALLY_SIGHASH_MASK) == WALLY_SIGHASH_SINGLE;
     const bool sh_anyonecanpay = sighash & WALLY_SIGHASH_ANYONECANPAY;
-    const bool sh_apo = sighash & WALLY_SIGHASH_ANYPREVOUT;
-    const bool sh_apoas = sh_apo && sh_anyonecanpay;
+    const bool sh_anyprevout = sighash & WALLY_SIGHASH_ANYPREVOUT;
+    const bool sh_anyprevout_anyonecanpay = sh_anyprevout && sh_anyonecanpay;
     unsigned char *p = bytes_out, *output_p, *msg_p;
     int ret = WALLY_OK;
 
@@ -2220,7 +2220,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
             return WALLY_ENOMEM;
     }
 
-    if (!sh_anyonecanpay && !sh_apo && !sh_apoas) {
+    if (!sh_anyonecanpay && !sh_anyprevout) {
         /* sha_prevouts */
         for (i = 0; i < tx->num_inputs; ++i) {
             unsigned char *tmp_p = buff_p + i * (WALLY_TXHASH_LEN + sizeof(uint32_t));
@@ -2308,7 +2308,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         p += varbuff_to_bytes(script->value, script->value_len, p);
         /* nSequence (4) */
         p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
-    } else if (sh_apo) {
+    } else if (sh_anyprevout) {
         const struct wally_map_item *script = wally_map_get_integer(opts->scripts, opts->index);
         if (!script || !script->value || script->value_len != WALLY_SCRIPTPUBKEY_P2TR_LEN) {
             ret = WALLY_EINVAL;
@@ -2320,7 +2320,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
         p += varbuff_to_bytes(script->value, script->value_len, p);
         /* nSequence (4) */
         p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
-    } else if (sh_apoas) {
+    } else if (sh_anyprevout_anyonecanpay) {
         /* nSequence (4) */
         p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
     } else {
@@ -2353,7 +2353,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     /* Tapscript Extensions */
     if (opts->tapscript_extensions) {
-        if (!sh_apoas) {
+        if (!sh_anyprevout_anyonecanpay) {
             /* tapleaf_hash (32)
              * hash_TapLeaf(v || compact_size(size of s) || s)
              */
