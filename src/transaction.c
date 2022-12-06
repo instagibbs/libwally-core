@@ -2117,9 +2117,9 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     const bool sh_rangeproof = sighash & WALLY_SIGHASH_RANGEPROOF;
     const bool sh_none = (sighash & WALLY_SIGHASH_MASK) == WALLY_SIGHASH_NONE;
     const bool sh_single = (sighash & WALLY_SIGHASH_MASK) == WALLY_SIGHASH_SINGLE;
-    const bool anyonecanpay = sighash & WALLY_SIGHASH_ANYONECANPAY;
+    const bool sh_anyonecanpay = sighash & WALLY_SIGHASH_ANYONECANPAY;
     const bool sh_apo = sighash & WALLY_SIGHASH_ANYPREVOUT;
-    const bool sh_apoas = sh_apo && anyonecanpay;
+    const bool sh_apoas = sh_apo && sh_anyonecanpay;
     unsigned char *p = bytes_out, *output_p, *msg_p;
     int ret = WALLY_OK;
 
@@ -2220,7 +2220,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
             return WALLY_ENOMEM;
     }
 
-    if (!anyonecanpay && !sh_apo && !sh_apoas) {
+    if (!sh_anyonecanpay && !sh_apo && !sh_apoas) {
         /* sha_prevouts */
         for (i = 0; i < tx->num_inputs; ++i) {
             unsigned char *tmp_p = buff_p + i * (WALLY_TXHASH_LEN + sizeof(uint32_t));
@@ -2292,7 +2292,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     p += uint8_to_le_bytes((opts->tapscript_extensions ? 1*2 : 0*2) + has_annex, p);
 
-    if (anyonecanpay) {
+    if (sh_anyonecanpay) {
         const struct wally_map_item *script = wally_map_get_integer(opts->scripts, opts->index);
         if (!script || !script->value || script->value_len != WALLY_SCRIPTPUBKEY_P2TR_LEN) {
             ret = WALLY_EINVAL;
