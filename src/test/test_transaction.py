@@ -263,10 +263,12 @@ class TransactionTests(unittest.TestCase):
     def test_get_taproot_signature_hash(self):
         """Testing function to get the taproot signature hash"""
 
-        with open(sys.path[0]+"/"+"wallet-test-vectors.json") as f:
-            test_vectors = json.load(f)
+        # Test vectors from:
+        # https://github.com/bitcoin/bips/blob/master/bip-0341/wallet-test-vectors.json
+        with open(root_dir + 'src/data/bip341_vectors.json', 'r') as f:
+            cases = json.load(f)
 
-        keyspend_case = test_vectors["keyPathSpending"][0]
+        keyspend_case = cases["keyPathSpending"][0]
         input_spending = keyspend_case["inputSpending"]
         utxos = keyspend_case["given"]["utxosSpent"]
         num_utxos = len(utxos)
