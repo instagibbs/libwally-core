@@ -46,6 +46,7 @@ extern "C" {
 #define WALLY_SIGHASH_ANYONECANPAY 0x80
 
 #define WALLY_SIGHASH_MASK         0x1f /* Mask for determining ALL/NONE/SINGLE */
+#define WALLY_SIGHASH_INPUT_MASK         0xc0 /* Mask for determining input hash type */
 
 #define WALLY_TX_ASSET_CT_EMPTY_PREFIX    0x00
 #define WALLY_TX_ASSET_CT_EXPLICIT_PREFIX 0x01

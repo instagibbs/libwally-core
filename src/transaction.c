@@ -2117,9 +2117,9 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
     const bool sh_rangeproof = sighash & WALLY_SIGHASH_RANGEPROOF;
     const bool sh_none = (sighash & WALLY_SIGHASH_MASK) == WALLY_SIGHASH_NONE;
     const bool sh_single = (sighash & WALLY_SIGHASH_MASK) == WALLY_SIGHASH_SINGLE;
-    const bool sh_anyonecanpay = sighash & WALLY_SIGHASH_ANYONECANPAY;
-    const bool sh_anyprevout = sighash & WALLY_SIGHASH_ANYPREVOUT;
-    const bool sh_anyprevout_anyonecanpay = sh_anyprevout && sh_anyonecanpay;
+    const bool sh_anyonecanpay = (sighash & WALLY_SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYONECANPAY;
+    const bool sh_anyprevout = (sighash & WALLY_SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYPREVOUT;
+    const bool sh_anyprevout_anyscript = (sighash & WALLY_SIGHASH_INPUT_MASK) == WALLY_SIGHASH_ANYPREVOUTANYSCRIPT;
     unsigned char *p = bytes_out, *output_p, *msg_p;
     int ret = WALLY_OK;
 
@@ -2292,25 +2292,35 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     p += uint8_to_le_bytes((opts->tapscript_extensions ? 1*2 : 0*2) + has_annex, p);
 
-    if (sh_anyprevout_anyonecanpay) {
-        /* nSequence (4) */
-        p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
-    } else if (sh_anyprevout || sh_anyonecanpay) {
-        const struct wally_map_item *script = wally_map_get_integer(opts->scripts, opts->index);
+    if (sh_anyonecanpay) {
+       const struct wally_map_item *script = wally_map_get_integer(opts->scripts, opts->index);
         if (!script || !script->value || script->value_len != WALLY_SCRIPTPUBKEY_P2TR_LEN) {
             ret = WALLY_EINVAL;
             goto error;
         }
-        if (sh_anyonecanpay) {
-            /* outpoint (36) */
-            memcpy(p, tx->inputs[opts->index].txhash, WALLY_TXHASH_LEN);
-            p += WALLY_TXHASH_LEN;
-            p += uint32_to_le_bytes(tx->inputs[opts->index].index, p);
+        /* outpoint (36) */
+        memcpy(p, tx->inputs[opts->index].txhash, WALLY_TXHASH_LEN);
+        p += WALLY_TXHASH_LEN;
+        p += uint32_to_le_bytes(tx->inputs[opts->index].index, p);
+        /* amount (8) */
+        p += uint64_to_le_bytes(opts->satoshi, p);
+        /* scriptPubKey (35) */
+        p += varbuff_to_bytes(script->value, script->value_len, p);
+        /* nSequence (4) */
+        p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
+    } else if (sh_anyprevout) {
+       const struct wally_map_item *script = wally_map_get_integer(opts->scripts, opts->index);
+        if (!script || !script->value || script->value_len != WALLY_SCRIPTPUBKEY_P2TR_LEN) {
+            ret = WALLY_EINVAL;
+            goto error;
         }
         /* amount (8) */
         p += uint64_to_le_bytes(opts->satoshi, p);
         /* scriptPubKey (35) */
         p += varbuff_to_bytes(script->value, script->value_len, p);
+        /* nSequence (4) */
+        p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
+    } else if (sh_anyprevout_anyscript) {
         /* nSequence (4) */
         p += uint32_to_le_bytes(tx->inputs[opts->index].sequence, p);
     } else {
@@ -2343,7 +2353,7 @@ static inline int tx_to_bip341_bytes(const struct wally_tx *tx,
 
     /* Tapscript Extensions */
     if (opts->tapscript_extensions) {
-        if (!sh_anyprevout_anyonecanpay) {
+        if (!sh_anyprevout_anyscript) {
             /* tapleaf_hash (32)
              * hash_TapLeaf(v || compact_size(size of s) || s)
              */
