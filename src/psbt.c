@@ -3734,6 +3734,7 @@ static int psbt_v2_to_v0(struct wally_psbt *psbt)
     }
 
     psbt->version = PSBT_0;
+	psbt->tx = tx;
     psbt->tx_version = 0;
     psbt->fallback_locktime = 0;
     psbt->has_fallback_locktime = false;
