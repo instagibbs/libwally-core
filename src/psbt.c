@@ -980,7 +980,7 @@ static int psbt_output_free(struct wally_psbt_output *output, bool free_parent)
     if (output) {
         wally_map_clear(&output->keypaths);
         wally_map_clear(&output->unknowns);
-        clear_and_free(output->script, output->script_len);
+        clear_and_free_bytes(output->script, output->script_len);
         wally_map_clear(&output->psbt_fields);
         wally_map_clear(&output->taproot_tree);
         wally_map_clear(&output->taproot_leaf_hashes);
