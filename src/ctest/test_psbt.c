@@ -119,6 +119,48 @@ int main(void)
         }
 
         wally_free_string(output);
+
+        /* Round-trip psbts through versions */
+		if (psbt_clone->version == 0) {
+        	wally_psbt_set_version(psbt_clone, 0, 2);
+        	wally_psbt_set_version(psbt_clone, 0, 0);
+		} else if (psbt_clone->version == 2) {
+			/* Round-trip will lose per-input timelock information, we skip these */
+			bool had_fallback = psbt_clone->has_fallback_locktime;
+			uint32_t modifiable_flags = psbt_clone->tx_modifiable_flags;
+			bool has_per_input = false;
+    		for (size_t j = 0; j < psbt_clone->num_inputs; ++j) {
+        		const struct wally_psbt_input *pi = &psbt_clone->inputs[j];
+        		const bool has_locktime = pi->required_locktime != 0;
+        		const bool has_lockheight = pi->required_lockheight != 0;
+				has_per_input |= has_locktime || has_lockheight;
+			}
+			if (!has_per_input) {
+        		wally_psbt_set_version(psbt_clone, 0, 0);
+        		wally_psbt_set_version(psbt_clone, 0, 2);
+				if (!psbt_clone->has_fallback_locktime)
+					fail("Roundtripped PSBTv2 is missing fallback locktime");
+				if (!had_fallback) {
+					/* Set for string comparison */
+					psbt_clone->has_fallback_locktime = 0;
+					psbt_clone->tx_modifiable_flags = modifiable_flags;
+				}
+			}
+		} else {
+			fail("Only v0/2 PSBTs supported", base64_in);
+		}
+
+        /* Still should match */
+        if (wally_psbt_to_base64(psbt_clone, 0, &output) != WALLY_OK)
+            fail("Failed to base64 psbt clone %s", base64_in);
+
+        if (valid_psbts[i].can_round_trip) {
+            if (strcmp(output, base64_in) != 0)
+            	fail("psbt clone %s turned into %s?", base64_in, output);
+        }
+
+
+        wally_free_string(output);
         wally_psbt_free(psbt_clone);
         wally_psbt_free(psbt);
     }

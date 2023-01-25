@@ -3696,7 +3696,6 @@ static int psbt_v0_to_v2(struct wally_psbt *psbt)
         po->amount = output->satoshi;
         po->has_amount = true;
         ret = wally_psbt_output_set_script(po, output->script, output->script_len);
-		output->script = NULL;
         if (ret != WALLY_OK)
             return ret;
     }
