@@ -3995,6 +3995,14 @@ static int get_scriptcode(const struct wally_psbt *psbt, size_t index,
             *script_len = wit_script->value_len;
             return WALLY_OK;
         }
+
+        if (ret == WALLY_OK && script_type == WALLY_SCRIPT_TYPE_P2TR) {
+            /* P2TR: Pass through the script since we'll maybe only sign tapleaf */
+            *script = scriptcode;
+            *script_len = scriptcode_len;
+            return WALLY_OK;
+        }
+
         return WALLY_EINVAL; /* Unknown scriptPubKey type/not enough info */
     }
 
@@ -4049,14 +4057,12 @@ static int wally_populate_sighash_scripts_values(const struct wally_psbt *psbt,
                                   struct wally_map *scripts,
                                   uint64_t *values)
 {
-	wally_psbt_input
-    for (int i=0; i<psbt->num_inputs; i++) {
-        ret = wally_map_add_integer(scripts, i, psbt->inputs[i]->witness_utxo.scripts, psbt->inputs[i]->witness_utxo.script_len);
+	int ret;
+    for (size_t i=0; i<psbt->num_inputs; i++) {
+        ret = wally_map_add_integer(scripts, i, psbt->inputs[i].witness_utxo->script, psbt->inputs[i].witness_utxo->script_len);
         if (ret != WALLY_OK)
             break;
-		if (!psbt->inputs[i]->witness_utxo.has_amount)
-            return WALLY_EINVAL;
-		values[i] = psbt->inputs[i]->witness_utxo.amount;
+		values[i] = psbt->inputs[i].witness_utxo->satoshi;
     }
 	return WALLY_OK;
 }
@@ -4072,7 +4078,7 @@ int wally_psbt_get_input_signature_hash(struct wally_psbt *psbt, size_t index,
     uint32_t sighash, sig_flags;
     size_t is_pset;
     int ret;
-	bool is_taproot_input = inp->witness_utxo && scriptpubkey_is_p2tr(inp->witness_utxo->script, inp->witness_utxo->script_len);
+	size_t script_type;
 
     if (!inp || !tx || flags)
         return WALLY_EINVAL;
@@ -4101,7 +4107,9 @@ int wally_psbt_get_input_signature_hash(struct wally_psbt *psbt, size_t index,
     }
     satoshi = inp->witness_utxo ? inp->witness_utxo->satoshi : 0;
 
-	if (is_taproot_input) {
+    wally_scriptpubkey_get_type(inp->witness_utxo->script, inp->witness_utxo->script_len, &script_type);
+
+	if (script_type == WALLY_SCRIPT_TYPE_P2TR) {
 		struct wally_map scripts;
 		uint64_t values[psbt->num_inputs];
 		ret = wally_map_init(psbt->num_inputs, NULL, &scripts);
@@ -4112,7 +4120,7 @@ int wally_psbt_get_input_signature_hash(struct wally_psbt *psbt, size_t index,
             wally_map_free(&scripts);
             return ret;
         }
-		ret = wally_tx_get_btc_taproot_signature_hash(tx, index, scripts,
+		ret = wally_tx_get_btc_taproot_signature_hash(tx, index, &scripts,
                                                        values, psbt->num_inputs,
                                                        script, script_len,
                                                        /* key_version= */ 0, /* codesep_position= */ 0xFFFFFFFF,
@@ -4210,27 +4218,17 @@ int wally_psbt_sign_bip32(struct wally_psbt *psbt,
 		if (ret == WALLY_OK)
 			ret = get_signing_script(psbt, i, &script, &script_len);
 
-        if (scriptpubkey_is_p2tr(script, script_len)) {
-			/* Key spend only support for now. */
+        /* Get the actual script to sign with */
+        if (ret == WALLY_OK)
+            ret = get_scriptcode(psbt, i, p2pkh, sizeof(p2pkh),
+                                 script, script_len,
+                                 &scriptcode, &scriptcode_len);
 
-            /* Get the hash to sign */
-            if (ret == WALLY_OK)
-                ret = wally_psbt_get_input_signature_hash(psbt, i, tx,
-                                                          script, script_len,
-                                                          0, txhash, sizeof(txhash));
-        } else {
-            /* Get the actual script to sign with */
-            if (ret == WALLY_OK)
-                ret = get_scriptcode(psbt, i, p2pkh, sizeof(p2pkh),
-                                     script, script_len,
-                                     &scriptcode, &scriptcode_len);
-
-            /* Get the hash to sign */
-            if (ret == WALLY_OK)
-                ret = wally_psbt_get_input_signature_hash(psbt, i, tx,
+        /* Get the hash to sign */
+        if (ret == WALLY_OK)
+            ret = wally_psbt_get_input_signature_hash(psbt, i, tx,
                                                           scriptcode, scriptcode_len,
                                                           0, txhash, sizeof(txhash));
-        }
         /* Sign the input */
         if (ret == WALLY_OK)
             ret = wally_psbt_sign_input_bip32(psbt, i, subindex,
