@@ -4173,9 +4173,12 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
     if (ret != WALLY_OK || !pubkey_idx)
         return WALLY_EINVAL; /* Signing pubkey key not found */
 
-    sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
+	sighash = inp->sighash;
     if (sighash & 0xffffff00)
         return WALLY_EINVAL;
+    /* FIXME I think this is broken for 0 case? wally_psbt_input_add_signature fails after mutating the sighash
+    sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
+    */
 
     /* Detect signature type, ECDSA or BIP340 */
 	ret = wally_scriptpubkey_get_type(inp->witness_utxo->script, inp->witness_utxo->script_len, &script_type);
