@@ -128,7 +128,8 @@ int wally_ec_public_key_negate(const unsigned char *pub_key, size_t pub_key_len,
 
 int wally_tr_pub_tweak(unsigned char *pub_key, const unsigned char *merkle_root)
 {
-    const secp256k1_context *ctx = secp_ctx();
+    const secp256k1_context *ctx = secp256k1_context_no_precomp;
+
     secp256k1_xonly_pubkey internal_pubkey;
     secp256k1_pubkey output_pubkey;
     int ret;
