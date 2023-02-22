@@ -299,10 +299,15 @@ int wally_ec_sig_from_bytes(const unsigned char *priv_key, size_t priv_key_len,
         return WALLY_ENOMEM;
 
     if (flags & EC_FLAG_SCHNORR) {
+        unsigned char sig[64];
+        secp256k1_keypair keypair;
         if (flags & EC_FLAG_RECOVERABLE)
             return WALLY_EINVAL; /* Only ECDSA is supported for recoverable sigs */
-        /* FIXME: Implement taproot schnorr sigs */
-        return WALLY_ERROR;
+        if (secp256k1_keypair_create(ctx, &keypair, priv_key) != 1)
+            return WALLY_ERROR;
+        if (secp256k1_schnorrsig_sign32(ctx, bytes_out, bytes, &keypair, /* aux_rand32 */ NULL) != 1)
+            return WALLY_ERROR;
+		return WALLY_OK;
     } else {
         unsigned char extra_entropy[32] = {0}, *entropy_p = NULL;
         unsigned char *bytes_out_p = flags & EC_FLAG_RECOVERABLE ? bytes_out + 1 : bytes_out;

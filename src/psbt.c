@@ -4177,13 +4177,10 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
     if (sighash & 0xffffff00)
         return WALLY_EINVAL;
 
-    /* Only grinding flag is relevant */
-    flags = EC_FLAG_ECDSA | (flags & EC_FLAG_GRIND_R);
-
     /* Detect signature type, ECDSA or BIP340 */
 	ret = wally_scriptpubkey_get_type(inp->witness_utxo->script, inp->witness_utxo->script_len, &script_type);
     if (ret != WALLY_OK || script_type == WALLY_SCRIPT_TYPE_P2TR) {
-		flags |= EC_FLAG_SCHNORR;
+		flags = EC_FLAG_SCHNORR;
         if (tap_leaves) {
 	        /* We only support tweaked keyspends for now */
             return WALLY_EINVAL;
@@ -4193,6 +4190,9 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
                 return ret;
             }
         }
+    } else {
+        /* Only grinding flag is relevant */
+        flags = EC_FLAG_ECDSA | (flags & EC_FLAG_GRIND_R);
     }
 
     /* Compute the sig */
