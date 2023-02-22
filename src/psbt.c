@@ -4469,8 +4469,9 @@ fail:
 
 static bool finalize_p2tr(struct wally_psbt_input *input)
 {
-    /* Keyspend signature in the same map? */
-    const struct wally_map_item *sig = wally_map_get_integer(&input->psbt_fields, PSBT_IN_TAP_KEY_SIG);
+    /* FIXME, don't grab signature from same map, it shouldn't be there */
+    //const struct wally_map_item *sig = wally_map_get_integer(&input->psbt_fields, PSBT_IN_TAP_KEY_SIG);
+	const struct wally_map_item *sig = get_sig(input, 0, 1);
 
     /* TODO support tapleaf spends input->taproot_leaf_signatures */
     if (!sig ||
