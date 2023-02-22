@@ -4207,7 +4207,7 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
 	        if (sighash != WALLY_SIGHASH_DEFAULT)
                 final_sig[final_sig_len++] = sighash & 0xff;
             pk = &inp->keypaths.items[pubkey_idx - 1];
-            /* FIXME this stuff needs to go in proper taproot place */
+            /* FIXME this stuff needs to go in proper taproot place aka PSBT_IN_TAP_KEY_SIG */
             ret = wally_psbt_input_add_signature(inp, pk->key, pk->key_len,
                                                  final_sig, final_sig_len);
         } else {
