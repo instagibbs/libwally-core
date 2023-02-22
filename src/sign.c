@@ -276,8 +276,6 @@ int wally_ec_sig_from_bytes_len(const unsigned char *priv_key, size_t priv_key_l
     if (flags & EC_FLAG_SCHNORR) {
         if (flags & EC_FLAG_RECOVERABLE)
             return WALLY_EINVAL; /* Only ECDSA is supported for recoverable sigs */
-        /* FIXME: Implement taproot schnorr signs */
-        return WALLY_ERROR; /* Failed to sign */
     }
     *written = flags & EC_FLAG_RECOVERABLE ? EC_SIGNATURE_RECOVERABLE_LEN : EC_SIGNATURE_LEN;
     return WALLY_OK;
