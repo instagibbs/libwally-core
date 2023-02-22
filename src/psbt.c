@@ -4188,7 +4188,7 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
 	        /* We only support tweaked keyspends for now */
             return WALLY_EINVAL;
         } else {
-            ret = wally_tr_priv_tweak(final_key, tap_merkle_root->value);
+            ret = wally_tr_priv_tweak(final_key, tap_merkle_root- ? tap_merkle_root->value : NULL);
             if (ret != WALLY_OK) {
                 return ret;
             }
