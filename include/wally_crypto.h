@@ -469,7 +469,7 @@ WALLY_CORE_API int wally_tr_pub_tweak(
  * :param priv_key: The privkey to tweak.
  * :param merkle_root: The sha2 merkle root to tweak by, NULL if none.
  */
-WALLY_CORE_API int wally_tr_pub_tweak(
+WALLY_CORE_API int wally_tr_priv_tweak(
     unsigned char *pub_key,
     const unsigned char *merkle_root);
 

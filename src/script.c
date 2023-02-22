@@ -1228,8 +1228,6 @@ int wally_witness_keyspend_p2tr(
     size_t sig_len,
     struct wally_tx_witness_stack **witness)
 {
-    unsigned char buff[WALLY_SCRIPTSIG_P2PKH_MAX_LEN];
-    size_t written;
     int ret;
 
 	/* Required to be a valid BIP340 length of 64 + possible sighash flag */
@@ -1242,7 +1240,9 @@ int wally_witness_keyspend_p2tr(
     ret = wally_tx_witness_stack_init_alloc(1, witness);
 
 	if (ret == WALLY_OK)
-		return wally_tx_witness_stack_add(witness, sig, sig_len);
+		return wally_tx_witness_stack_add(*witness, sig, sig_len);
+
+	return ret;
 }
 
 int wally_witness_p2wpkh_from_sig(

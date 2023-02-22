@@ -436,7 +436,6 @@ int wally_map_find_bip32_public_key_from(const struct wally_map *map_in, size_t 
                                          const struct ext_key *hdkey, size_t *written)
 {
     int ret;
-	unsigned char tr_pubkey[EC_XONLY_PUBLIC_KEY_LEN];
 
     if (written)
         *written = 0;

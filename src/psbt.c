@@ -4151,10 +4151,14 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
 	const struct wally_map_item *tap_merkle_root = wally_map_get_integer(&inp->psbt_fields, PSBT_IN_TAP_MERKLE_ROOT);
     /* FIXME multiple leaves possible per input, what do */
 	const struct wally_map_item *tap_leaves = wally_map_get_integer(&inp->psbt_fields, PSBT_IN_TAP_LEAF_SCRIPT);
+    unsigned char final_key[32];
 
     if (!inp || !hdkey || hdkey->priv_key[0] != BIP32_FLAG_KEY_PRIVATE ||
         (flags & ~EC_FLAGS_ALL))
         return WALLY_EINVAL;
+
+    /* May be tweaked in-place later*/
+    memcpy(final_key, hdkey->priv_key + 1, EC_PRIVATE_KEY_LEN);
 
     /* Find the public key this signature is for */
     ret = wally_map_find_bip32_public_key_from(&inp->keypaths, subindex,
@@ -4181,17 +4185,18 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
     if (ret != WALLY_OK || script_type == WALLY_SCRIPT_TYPE_P2TR) {
 		flags |= EC_FLAG_SCHNORR;
         if (tap_leaves) {
-	        /* We only support tr() style "empty" tweaked keyspends for now */
+	        /* We only support tweaked keyspends for now */
             return WALLY_EINVAL;
-        } else if (tap_merkle_root) {
-
         } else {
-
-       }
+            ret = wally_tr_priv_tweak(final_key, tap_merkle_root->value);
+            if (ret != WALLY_OK) {
+                return ret;
+            }
+        }
     }
 
     /* Compute the sig */
-    ret = wally_ec_sig_from_bytes(hdkey->priv_key + 1, EC_PRIVATE_KEY_LEN,
+    ret = wally_ec_sig_from_bytes(final_key, EC_PRIVATE_KEY_LEN,
                                   txhash, txhash_len, flags, sig, sizeof(sig));
     if (ret == WALLY_OK) {
         if (flags & EC_FLAG_SCHNORR) {
