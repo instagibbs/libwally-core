@@ -4127,7 +4127,7 @@ int wally_psbt_get_input_signature_hash(struct wally_psbt *psbt, size_t index,
                                                        /* annex= */ NULL, /* annex_len= */ 0,
                                                        sighash, /* flags= */ 0,
                                                        bytes_out, len);
-        wally_map_free(&scripts);
+        // FIXME CLN gets tal-upset wally_map_free(&scripts);
         return ret;
 	} else {
 	    return wally_tx_get_btc_signature_hash(tx, index, script, script_len,
