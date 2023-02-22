@@ -4207,6 +4207,7 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
             unsigned char final_sig[EC_SIGNATURE_LEN + 1];
 			size_t final_sig_len = EC_SIGNATURE_LEN;
             memcpy(final_sig, sig, EC_SIGNATURE_LEN);
+			/* FIXME since we're adding to the wrong place, it needs to have sighash byte? */
 	        if (sighash != WALLY_SIGHASH_DEFAULT)
                 final_sig[final_sig_len++] = sighash & 0xff;
             pk = &inp->keypaths.items[pubkey_idx - 1];
