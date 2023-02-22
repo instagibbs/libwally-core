@@ -132,28 +132,28 @@ int wally_tr_pub_tweak(unsigned char *pub_key, const unsigned char *merkle_root)
     secp256k1_xonly_pubkey internal_pubkey;
     secp256k1_pubkey output_pubkey;
     int ret;
-	unsigned char preimage_buff[EC_XONLY_PUBLIC_KEY_LEN + SHA256_LEN];
-	size_t preimage_size = EC_XONLY_PUBLIC_KEY_LEN;
-	unsigned char tweak[SHA256_LEN];
-	size_t out_len = 33;
+    unsigned char preimage_buff[EC_XONLY_PUBLIC_KEY_LEN + SHA256_LEN];
+    size_t preimage_size = EC_XONLY_PUBLIC_KEY_LEN;
+    unsigned char tweak[SHA256_LEN];
+    size_t out_len = 33;
 
     ret = secp256k1_xonly_pubkey_parse(ctx, &internal_pubkey, pub_key + 1); 
-	if (!ret)
+    if (!ret)
         return WALLY_EINVAL; 
 
-	memcpy(preimage_buff, pub_key + 1, EC_XONLY_PUBLIC_KEY_LEN);
+    memcpy(preimage_buff, pub_key + 1, EC_XONLY_PUBLIC_KEY_LEN);
     if (merkle_root) {
         preimage_size += SHA256_LEN;
    	    memcpy(preimage_buff + EC_XONLY_PUBLIC_KEY_LEN, merkle_root, SHA256_LEN);
     }
 
     ret = wally_bip340_tagged_hash(preimage_buff, preimage_size, "TapTweak", tweak, sizeof(tweak));
-	if (ret != WALLY_OK)
-		return ret;
-
-    ret = secp256k1_xonly_pubkey_tweak_add(ctx, &output_pubkey, &internal_pubkey, tweak);
     if (ret != WALLY_OK)
         return ret;
+
+    ret = secp256k1_xonly_pubkey_tweak_add(ctx, &output_pubkey, &internal_pubkey, tweak);
+    if (ret != 1)
+        return WALLY_ERROR;
 
     secp256k1_ec_pubkey_serialize(ctx, pub_key, &out_len, &output_pubkey, SECP256K1_EC_COMPRESSED);
 
