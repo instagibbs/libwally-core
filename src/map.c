@@ -436,6 +436,7 @@ int wally_map_find_bip32_public_key_from(const struct wally_map *map_in, size_t 
                                          const struct ext_key *hdkey, size_t *written)
 {
     int ret;
+	unsigned char tr_pubkey[EC_XONLY_PUBLIC_KEY_LEN];
 
     if (written)
         *written = 0;
@@ -451,6 +452,9 @@ int wally_map_find_bip32_public_key_from(const struct wally_map *map_in, size_t 
     ret = wally_map_find_from(map_in, index, hdkey->pub_key + 1, EC_XONLY_PUBLIC_KEY_LEN, written);
     if (ret == WALLY_OK && *written)
         return ret;
+	/* Try the tweaked tr() X-only pubkey FIXME ??? the internal pubkey is the thing that's likely added anyways */
+	//memcpy(tr_pubkey, hdkey->pub_key + 1, EC_XONLY_PUBLIC_KEY_LEN);
+    /* wally_tr_empty_tweak */
     if (map_contains_key_length(map_in, index, EC_PUBLIC_KEY_UNCOMPRESSED_LEN)) {
         /* Uncompressed keys present: try the uncompressed pubkey */
         unsigned char full_pubkey[EC_PUBLIC_KEY_UNCOMPRESSED_LEN];
