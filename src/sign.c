@@ -189,7 +189,12 @@ int wally_tr_priv_tweak(unsigned char *priv_key, const unsigned char *merkle_roo
 	if (ret != WALLY_OK)
 		return ret;
 
-    return secp256k1_ec_seckey_tweak_add(ctx, priv_key, tweak) == 1 ? WALLY_OK : WALLY_ERROR;
+    ret = secp256k1_keypair_xonly_tweak_add(ctx, &internal_keypair, tweak);
+    if (ret != 1)
+        return WALLY_ERROR;
+
+    secp256k1_keypair_sec(ctx, priv_key, &internal_keypair);
+    return WALLY_OK;
 }
 
 int wally_ec_sig_normalize(const unsigned char *sig, size_t sig_len,
