@@ -4208,6 +4208,7 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
             /* FIXME This should be a unit test */
             secp256k1_keypair keypair;
             secp256k1_pubkey computed_key;
+            secp256k1_pubkey final_pubkey_secp;
             ret = wally_tr_priv_tweak(final_key, tap_merkle_root ? tap_merkle_root->value : NULL);
             if (ret != WALLY_OK) {
                 return ret;
@@ -4220,7 +4221,9 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
                 return WALLY_ERROR;
             if (secp256k1_keypair_pub(ctx, &computed_key, &keypair) != 1)
                 return WALLY_ERROR;
-            if (secp256k1_ec_pubkey_cmp(ctx, &final_pubkey, &computed_key) != 0)
+            if (secp256k1_ec_pubkey_parse(ctx, &final_pubkey_secp, final_pubkey, 33) != 1)
+                return WALLY_ERROR;
+            if (secp256k1_ec_pubkey_cmp(ctx, &final_pubkey_secp, &computed_key) != 0)
                 return WALLY_ERROR;
         }
     } else {
