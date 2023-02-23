@@ -4098,7 +4098,10 @@ int wally_psbt_get_input_signature_hash(struct wally_psbt *psbt, size_t index,
     if ((ret = wally_psbt_is_elements(psbt, &is_pset)) != WALLY_OK)
         return ret;
 
-    sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
+	
+    // FIXME support DEFAULT switching
+    //sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
+    sighash = inp->sighash;
     if (sighash & 0xffffff00)
         return WALLY_EINVAL;
     sig_flags = inp->witness_utxo ? WALLY_TX_FLAG_USE_WITNESS : 0;
