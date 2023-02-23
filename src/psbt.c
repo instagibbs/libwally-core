@@ -4134,7 +4134,7 @@ int wally_psbt_get_input_signature_hash(struct wally_psbt *psbt, size_t index,
         }
 		ret = wally_tx_get_btc_taproot_signature_hash(tx, index, &scripts,
                                                        values, psbt->num_inputs,
-                                                       script, script_len,
+                                                       /* tapleaf_script */ NULL, /* tapleaf_script_len */ 0,
                                                        /* key_version= */ 0, /* codesep_position= */ 0xFFFFFFFF,
                                                        /* annex= */ NULL, /* annex_len= */ 0,
                                                        sighash, /* flags= */ 0,
