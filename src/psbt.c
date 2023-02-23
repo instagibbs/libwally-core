@@ -4209,6 +4209,7 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
             secp256k1_keypair keypair;
             secp256k1_pubkey computed_key;
             secp256k1_pubkey final_pubkey_secp;
+            const secp256k1_context *ctx = secp_ctx();;
             ret = wally_tr_priv_tweak(final_key, tap_merkle_root ? tap_merkle_root->value : NULL);
             if (ret != WALLY_OK) {
                 return ret;
