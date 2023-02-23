@@ -299,7 +299,6 @@ int wally_ec_sig_from_bytes(const unsigned char *priv_key, size_t priv_key_len,
         return WALLY_ENOMEM;
 
     if (flags & EC_FLAG_SCHNORR) {
-        unsigned char sig[64];
         secp256k1_keypair keypair;
         if (flags & EC_FLAG_RECOVERABLE)
             return WALLY_EINVAL; /* Only ECDSA is supported for recoverable sigs */

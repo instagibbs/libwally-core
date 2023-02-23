@@ -4167,6 +4167,7 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
     /* FIXME multiple leaves possible per input, what do */
 	const struct wally_map_item *tap_leaves = wally_map_get_integer(&inp->psbt_fields, PSBT_IN_TAP_LEAF_SCRIPT);
     unsigned char final_key[32];
+	unsigned char final_pubkey[33];
 
     if (!inp || !hdkey || hdkey->priv_key[0] != BIP32_FLAG_KEY_PRIVATE ||
         (flags & ~EC_FLAGS_ALL))
@@ -4174,6 +4175,7 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
 
     /* May be tweaked in-place later*/
     memcpy(final_key, hdkey->priv_key + 1, EC_PRIVATE_KEY_LEN);
+    memcpy(final_pubkey, hdkey->pub_key, 33);
 
     /* Find the public key this signature is for */
     ret = wally_map_find_bip32_public_key_from(&inp->keypaths, subindex,
@@ -4203,10 +4205,23 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
 	        /* We only support tweaked keyspends for now */
             return WALLY_EINVAL;
         } else {
+            /* FIXME This should be a unit test */
+            secp256k1_keypair keypair;
+            secp256k1_pubkey computed_key;
             ret = wally_tr_priv_tweak(final_key, tap_merkle_root ? tap_merkle_root->value : NULL);
             if (ret != WALLY_OK) {
                 return ret;
             }
+            ret = wally_tr_pub_tweak(final_pubkey, tap_merkle_root ? tap_merkle_root->value : NULL);
+            if (ret != WALLY_OK) {
+                return ret;
+            }
+            if (secp256k1_keypair_create(ctx, &keypair, final_key) != 1)
+                return WALLY_ERROR;
+            if (secp256k1_keypair_pub(ctx, &computed_key, &keypair) != 1)
+                return WALLY_ERROR;
+            if (secp256k1_ec_pubkey_cmp(ctx, &final_pubkey, &computed_key) != 0)
+                return WALLY_ERROR;
         }
     } else {
         /* Only grinding flag is relevant */
