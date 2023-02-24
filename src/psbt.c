@@ -4492,6 +4492,9 @@ int wally_psbt_finalize_input(struct wally_psbt *psbt, size_t index, uint32_t fl
     case WALLY_SCRIPT_TYPE_MULTISIG:
         if (!finalize_multisig(input, out_script, out_script_len, is_witness, is_p2sh))
             return WALLY_OK;
+    case WALLY_SCRIPT_TYPE_P2TR:
+        if (!finalize_p2tr(input))
+            return WALLY_OK;
         break;
     case WALLY_SCRIPT_TYPE_P2TR:
         if (!finalize_p2tr(input))
