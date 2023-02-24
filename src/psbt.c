@@ -4208,35 +4208,99 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
     uint32_t sighash;
     struct wally_psbt_input *inp = psbt_get_input(psbt, index);
     int ret;
+    size_t script_type;
+    const struct wally_map_item *tap_merkle_root = wally_map_get_integer(&inp->psbt_fields, PSBT_IN_TAP_MERKLE_ROOT);
+    /* FIXME multiple leaves possible per input; how do I access these? Can just count for now since not supporting  */
+    const struct wally_map_item *tap_leaves = wally_map_get_integer(&inp->psbt_fields, PSBT_IN_TAP_LEAF_SCRIPT);
+    unsigned char final_key[32];
+    unsigned char final_pubkey[33];
 
     if (!inp || !hdkey || hdkey->priv_key[0] != BIP32_FLAG_KEY_PRIVATE ||
         (flags & ~EC_FLAGS_ALL))
         return WALLY_EINVAL;
 
+    /* May be tweaked in-place later*/
+    memcpy(final_key, hdkey->priv_key + 1, EC_PRIVATE_KEY_LEN);
+    memcpy(final_pubkey, hdkey->pub_key, 33);
+
     /* Find the public key this signature is for */
     ret = wally_map_find_bip32_public_key_from(&inp->keypaths, subindex,
                                                hdkey, &pubkey_idx);
+
+    /* FIXME we should be also trying to fetch the public key from a tapkey map f.e. vvv
+    if (ret != WALLY_OK)
+        ret = wally_map_find_bip32_public_key_from(&inp->tap_keypaths, subindex,
+                                               hdkey, &pubkey_idx);
+    */
+
     if (ret != WALLY_OK || !pubkey_idx)
         return WALLY_EINVAL; /* Signing pubkey key not found */
 
-    sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
+    sighash = inp->sighash;
     if (sighash & 0xffffff00)
         return WALLY_EINVAL;
 
-    /* Only grinding flag is relevant */
-    flags = EC_FLAG_ECDSA | (flags & EC_FLAG_GRIND_R);
+    /* Detect signature type, ECDSA or BIP340 */
+    ret = wally_scriptpubkey_get_type(inp->witness_utxo->script, inp->witness_utxo->script_len, &script_type);
+    if (ret != WALLY_OK || script_type == WALLY_SCRIPT_TYPE_P2TR) {
+        flags = EC_FLAG_SCHNORR;
+        if (tap_leaves) {
+            /* We only support tweaked keyspends for now */
+            return WALLY_EINVAL;
+        } else {
+            /* FIXME This should be a unit test */
+            secp256k1_keypair keypair;
+            secp256k1_pubkey computed_key;
+            secp256k1_pubkey final_pubkey_secp;
+            const secp256k1_context *ctx = secp_ctx();;
+            ret = wally_tr_priv_tweak(final_key, tap_merkle_root ? tap_merkle_root->value : NULL);
+            if (ret != WALLY_OK) {
+                return ret;
+            }
+            ret = wally_tr_pub_tweak(final_pubkey, tap_merkle_root ? tap_merkle_root->value : NULL);
+            if (ret != WALLY_OK) {
+                return ret;
+            }
+            if (secp256k1_keypair_create(ctx, &keypair, final_key) != 1)
+                return WALLY_ERROR;
+            if (secp256k1_keypair_pub(ctx, &computed_key, &keypair) != 1)
+                return WALLY_ERROR;
+            if (secp256k1_ec_pubkey_parse(ctx, &final_pubkey_secp, final_pubkey, 33) != 1)
+                return WALLY_ERROR;
+            if (secp256k1_ec_pubkey_cmp(ctx, &final_pubkey_secp, &computed_key) != 0)
+                return WALLY_ERROR;
+        }
+    } else {
+        /* Only grinding flag is relevant */
+        flags = EC_FLAG_ECDSA | (flags & EC_FLAG_GRIND_R);
+    }
+
     /* Compute the sig */
-    ret = wally_ec_sig_from_bytes(hdkey->priv_key + 1, EC_PRIVATE_KEY_LEN,
+    ret = wally_ec_sig_from_bytes(final_key, EC_PRIVATE_KEY_LEN,
                                   txhash, txhash_len, flags, sig, sizeof(sig));
     if (ret == WALLY_OK) {
-        /* Convert to DER, add sighash byte and store */
-        ret = wally_ec_sig_to_der(sig, sizeof(sig), der, sizeof(der), &der_len);
-        if (ret == WALLY_OK) {
+        if (flags & EC_FLAG_SCHNORR) {
             const struct wally_map_item *pk;
-            der[der_len++] = sighash & 0xff;
+            unsigned char final_sig[EC_SIGNATURE_LEN + 1];
+            size_t final_sig_len = EC_SIGNATURE_LEN;
+            memcpy(final_sig, sig, EC_SIGNATURE_LEN);
+            if (sighash != WALLY_SIGHASH_DEFAULT)
+                final_sig[final_sig_len++] = sighash & 0xff;
             pk = &inp->keypaths.items[pubkey_idx - 1];
+            /* FIXME this stuff needs to go in proper taproot place aka PSBT_IN_TAP_KEY_SIG */
             ret = wally_psbt_input_add_signature(inp, pk->key, pk->key_len,
-                                                 der, der_len);
+                                                 final_sig, final_sig_len);
+        } else {
+            sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
+            /* Convert to DER, add sighash byte and store */
+            ret = wally_ec_sig_to_der(sig, sizeof(sig), der, sizeof(der), &der_len);
+            if (ret == WALLY_OK) {
+                const struct wally_map_item *pk;
+                der[der_len++] = sighash & 0xff;
+                pk = &inp->keypaths.items[pubkey_idx - 1];
+                ret = wally_psbt_input_add_signature(inp, pk->key, pk->key_len,
+                                             der, der_len);
+            }
         }
     }
     wally_clear_2(sig, sizeof(sig), der, sizeof(der));
