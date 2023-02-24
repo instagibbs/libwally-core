@@ -410,12 +410,24 @@ static int der_sig_verify(const unsigned char *der, size_t der_len)
     return WALLY_EINVAL;
 }
 
+/* Verify a BIP340 sig plus optional sighash byte */
+static int der_bip340sig_verify(const unsigned char *bytes, size_t bytes_len)
+{
+    /* TODO real checks */
+    if (bytes_len == 64 || bytes_len == 65)
+        return WALLY_OK;
+    return WALLY_EINVAL;
+}
+
+/* FIXME Probably shouldn't allow both paths and put sigs in right place instead */
 static int pubkey_sig_verify(const unsigned char *key, size_t key_len,
                              const unsigned char *val, size_t val_len)
 {
     int ret = wally_ec_public_key_verify(key, key_len);
     if (ret == WALLY_OK)
         ret = der_sig_verify(val, val_len);
+    if (ret != WALLY_OK)
+        ret = der_bip340sig_verify(val, val_len);
     return ret;
 }
 
