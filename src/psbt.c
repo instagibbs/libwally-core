@@ -4041,6 +4041,14 @@ static int get_scriptcode(const struct wally_psbt *psbt, size_t index,
             *script_len = wit_script->value_len;
             return WALLY_OK;
         }
+
+        if (ret == WALLY_OK && script_type == WALLY_SCRIPT_TYPE_P2TR) {
+            /* P2TR: Pass through the script since we'll maybe only sign tapleaf */
+            *script = scriptcode;
+            *script_len = scriptcode_len;
+            return WALLY_OK;
+        }
+
         return WALLY_EINVAL; /* Unknown scriptPubKey type/not enough info */
     }
 
