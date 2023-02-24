@@ -4367,6 +4367,20 @@ fail:
     return ret;
 }
 
+static bool finalize_p2tr(struct wally_psbt_input *input)
+{
+    /* FIXME, don't grab signature from same map, it shouldn't be there */
+    //const struct wally_map_item *sig = wally_map_get_integer(&input->psbt_fields, PSBT_IN_TAP_KEY_SIG);
+    const struct wally_map_item *sig = get_sig(input, 0, 1);
+
+    /* TODO support tapleaf spends input->taproot_leaf_signatures */
+    if (!sig ||
+        wally_witness_keyspend_p2tr(sig->value, sig->value_len,
+                                    &input->final_witness) != WALLY_OK)
+        return false;
+    return true;
+}
+
 int wally_psbt_finalize(struct wally_psbt *psbt)
 {
     size_t i;
@@ -4437,6 +4451,10 @@ int wally_psbt_finalize(struct wally_psbt *psbt)
             break;
         case WALLY_SCRIPT_TYPE_MULTISIG:
             if (!finalize_multisig(input, out_script, out_script_len, is_witness, is_p2sh))
+                continue;
+            break;
+        case WALLY_SCRIPT_TYPE_P2TR:
+            if (!finalize_p2tr(input))
                 continue;
             break;
         default:
