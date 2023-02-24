@@ -4099,8 +4099,6 @@ int wally_psbt_get_input_signature_hash(struct wally_psbt *psbt, size_t index,
         return ret;
 
 	
-    // FIXME support DEFAULT switching
-    //sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
     sighash = inp->sighash;
     if (sighash & 0xffffff00)
         return WALLY_EINVAL;
@@ -4110,6 +4108,7 @@ int wally_psbt_get_input_signature_hash(struct wally_psbt *psbt, size_t index,
         if (!inp->witness_utxo)
             return WALLY_EINVAL; /* Must be segwit */
 #ifdef BUILD_ELEMENTS
+        sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
         return wally_tx_get_elements_signature_hash(tx, index,
                                                     script, script_len,
                                                     inp->witness_utxo->value,
@@ -4145,6 +4144,7 @@ int wally_psbt_get_input_signature_hash(struct wally_psbt *psbt, size_t index,
         // FIXME CLN gets tal-upset wally_map_free(&scripts);
         return ret;
 	} else {
+        sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
 	    return wally_tx_get_btc_signature_hash(tx, index, script, script_len,
     	                                       satoshi, sighash, sig_flags,
         	                                   bytes_out, len);
@@ -4249,6 +4249,7 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
             ret = wally_psbt_input_add_signature(inp, pk->key, pk->key_len,
                                                  final_sig, final_sig_len);
         } else {
+            sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
             /* Convert to DER, add sighash byte and store */
             ret = wally_ec_sig_to_der(sig, sizeof(sig), der, sizeof(der), &der_len);
             if (ret == WALLY_OK) {
