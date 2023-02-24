@@ -218,6 +218,77 @@ int wally_ec_private_key_bip341_tweak(
     return WALLY_OK;
 }
 
+int wally_tr_pub_tweak(unsigned char *pub_key, const unsigned char *merkle_root)
+{
+    const secp256k1_context *ctx = secp256k1_context_no_precomp;
+
+    secp256k1_xonly_pubkey internal_pubkey;
+    secp256k1_pubkey output_pubkey;
+    int ret;
+    unsigned char preimage_buff[EC_XONLY_PUBLIC_KEY_LEN + SHA256_LEN];
+    size_t preimage_size = EC_XONLY_PUBLIC_KEY_LEN;
+    unsigned char tweak[SHA256_LEN];
+    size_t out_len = 33;
+
+    ret = secp256k1_xonly_pubkey_parse(ctx, &internal_pubkey, pub_key + 1); 
+    if (!ret)
+        return WALLY_EINVAL; 
+
+    memcpy(preimage_buff, pub_key + 1, EC_XONLY_PUBLIC_KEY_LEN);
+    if (merkle_root) {
+        preimage_size += SHA256_LEN;
+        memcpy(preimage_buff + EC_XONLY_PUBLIC_KEY_LEN, merkle_root, SHA256_LEN);
+    }
+
+    ret = wally_bip340_tagged_hash(preimage_buff, preimage_size, "TapTweak", tweak, sizeof(tweak));
+    if (ret != WALLY_OK)
+        return ret;
+
+    ret = secp256k1_xonly_pubkey_tweak_add(ctx, &output_pubkey, &internal_pubkey, tweak);
+    if (ret != 1)
+        return WALLY_ERROR;
+
+    secp256k1_ec_pubkey_serialize(ctx, pub_key, &out_len, &output_pubkey, SECP256K1_EC_COMPRESSED);
+
+    return WALLY_OK;
+}
+
+int wally_tr_priv_tweak(unsigned char *priv_key, const unsigned char *merkle_root)
+{
+    const secp256k1_context *ctx = secp_ctx();
+    secp256k1_keypair internal_keypair;
+    secp256k1_xonly_pubkey internal_pubkey;
+    int ret;
+    unsigned char preimage_buff[EC_XONLY_PUBLIC_KEY_LEN + SHA256_LEN];
+    size_t preimage_size = EC_XONLY_PUBLIC_KEY_LEN;
+    unsigned char tweak[SHA256_LEN];
+
+    if (secp256k1_keypair_create(ctx, &internal_keypair, priv_key) != 1)
+        return WALLY_ERROR;
+
+    if (secp256k1_keypair_xonly_pub(ctx, &internal_pubkey, /* pk_parity */ NULL, &internal_keypair) != 1)
+        return WALLY_ERROR;
+
+    if (secp256k1_xonly_pubkey_serialize(ctx, preimage_buff, &internal_pubkey) != 1)
+        return WALLY_ERROR;
+
+    if (merkle_root) {
+        preimage_size += SHA256_LEN;
+           memcpy(preimage_buff + EC_XONLY_PUBLIC_KEY_LEN, merkle_root, SHA256_LEN);
+    }
+
+    ret = wally_bip340_tagged_hash(preimage_buff, preimage_size, "TapTweak", tweak, sizeof(tweak));
+    if (ret != WALLY_OK)
+        return ret;
+
+    ret = secp256k1_keypair_xonly_tweak_add(ctx, &internal_keypair, tweak);
+    if (ret != 1)
+        return WALLY_ERROR;
+
+    secp256k1_keypair_sec(ctx, priv_key, &internal_keypair);
+    return WALLY_OK;
+}
+
 int wally_ec_sig_normalize(const unsigned char *sig, size_t sig_len,
                            unsigned char *bytes_out, size_t len)
 {
