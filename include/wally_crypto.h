@@ -446,6 +446,34 @@ WALLY_CORE_API int wally_ec_sig_from_bytes(
     size_t len);
 
 /**
+ * Tweak a compressed pubkey with the BIP341-suggested
+ * commitment when no merkle root is included:
+ * `Q = P + int(hashTapTweak(bytes(P)))G`
+ * otherwise:
+ * `Q = P + int(hashTapTweak(bytes(P)||merkle_root))G`
+ *
+ * :param pub_key: The compressed pubkey to tweak.
+ * :param merkle_root: The sha2 merkle root to tweak by, NULL if none.
+ */
+WALLY_CORE_API int wally_tr_pub_tweak(
+    unsigned char *pub_key,
+    const unsigned char *merkle_root);
+
+/**
+ * Tweak a privkey with the BIP341-suggested
+ * commitment when no merkle root is included:
+ * `Q = P + int(hashTapTweak(bytes(P)))G`
+ * otherwise:
+ * `Q = P + int(hashTapTweak(bytes(P)||merkle_root))G`
+ *
+ * :param priv_key: The privkey to tweak.
+ * :param merkle_root: The sha2 merkle root to tweak by, NULL if none.
+ */
+WALLY_CORE_API int wally_tr_priv_tweak(
+    unsigned char *pub_key,
+    const unsigned char *merkle_root);
+
+/**
  * Convert a signature to low-s form.
  *
  * :param sig: The compact signature to convert.
