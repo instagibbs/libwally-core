@@ -4071,7 +4071,13 @@ static int wally_populate_sighash_scripts_values(const struct wally_psbt *psbt,
 {
     int ret;
     for (size_t i=0; i<psbt->num_inputs; i++) {
-        ret = wally_map_add_integer(scripts, i, psbt->inputs[i].witness_utxo->script, psbt->inputs[i].witness_utxo->script_len);
+        if (psbt->inputs[i].witness_utxo && psbt->inputs[i].witness_utxo->script) {
+            ret = wally_map_add_integer(scripts, i, psbt->inputs[i].witness_utxo->script, psbt->inputs[i].witness_utxo->script_len);
+        } else if (psbt->inputs[i].utxo && psbt->inputs[i].utxo->outputs[psbt->inputs[i].index].script) {
+            ret = wally_map_add_integer(scripts, i, psbt->inputs[i].utxo->outputs[psbt->inputs[i].index].script, psbt->inputs[i].utxo->outputs[psbt->inputs[i].index].script_len);
+        } else {
+            return WALLY_EINVAL;
+        }
         if (ret != WALLY_OK)
             break;
         values[i] = psbt->inputs[i].witness_utxo->satoshi;
