@@ -4255,27 +4255,10 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
             /* We only support tweaked keyspends for now */
             return WALLY_EINVAL;
         } else {
-            /* FIXME This should be a unit test */
-            secp256k1_keypair keypair;
-            secp256k1_pubkey computed_key;
-            secp256k1_pubkey final_pubkey_secp;
-            const secp256k1_context *ctx = secp_ctx();;
-            ret = wally_tr_priv_tweak(final_key, tap_merkle_root ? tap_merkle_root->value : NULL);
+            ret = wally_ec_private_key_bip341_tweak(final_key, sizeof(final_key), tap_merkle_root ? tap_merkle_root->value : NULL, tap_merkle_root ? tap_merkle_root->value_len : 0, 0, final_key, sizeof(final_key));
             if (ret != WALLY_OK) {
                 return ret;
             }
-            ret = wally_tr_pub_tweak(final_pubkey, tap_merkle_root ? tap_merkle_root->value : NULL);
-            if (ret != WALLY_OK) {
-                return ret;
-            }
-            if (secp256k1_keypair_create(ctx, &keypair, final_key) != 1)
-                return WALLY_ERROR;
-            if (secp256k1_keypair_pub(ctx, &computed_key, &keypair) != 1)
-                return WALLY_ERROR;
-            if (secp256k1_ec_pubkey_parse(ctx, &final_pubkey_secp, final_pubkey, 33) != 1)
-                return WALLY_ERROR;
-            if (secp256k1_ec_pubkey_cmp(ctx, &final_pubkey_secp, &computed_key) != 0)
-                return WALLY_ERROR;
         }
     } else {
         /* Only grinding flag is relevant */
@@ -4617,6 +4600,7 @@ int wally_psbt_finalize_input(struct wally_psbt *psbt, size_t index, uint32_t fl
     case WALLY_SCRIPT_TYPE_MULTISIG:
         if (!finalize_multisig(input, out_script, out_script_len, is_witness, is_p2sh))
             return WALLY_OK;
+		break;
     case WALLY_SCRIPT_TYPE_P2TR:
         if (!finalize_p2tr(input))
             return WALLY_OK;
