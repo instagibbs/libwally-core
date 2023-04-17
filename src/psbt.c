@@ -4606,10 +4606,6 @@ int wally_psbt_finalize_input(struct wally_psbt *psbt, size_t index, uint32_t fl
         if (!finalize_p2tr(input))
             return WALLY_OK;
         break;
-    case WALLY_SCRIPT_TYPE_P2TR:
-        if (!finalize_p2tr(input))
-            return WALLY_OK;
-        break;
     default:
         return WALLY_OK; /* Unhandled script type  */
     }
