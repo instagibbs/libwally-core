@@ -3944,6 +3944,7 @@ int wally_psbt_get_input_bip32_key_from_alloc(const struct wally_psbt *psbt,
             bip32_key_free(*output);
             *output = NULL;
         }
+        return ret;
     }
 
     /* Now try taproot x-only lookup */
@@ -3951,7 +3952,7 @@ int wally_psbt_get_input_bip32_key_from_alloc(const struct wally_psbt *psbt,
                                                      hdkey, output);
     if (ret == WALLY_OK && *output) {
         /* Found: Make sure we don't have a signature already */
-        if (wally_map_get_integer(&input->psbt_fields, PSBT_IN_TAP_KEY_SIG)) {
+        if (wally_map_get_integer(&inp->psbt_fields, PSBT_IN_TAP_KEY_SIG)) {
             bip32_key_free(*output);
             *output = NULL;
         }
