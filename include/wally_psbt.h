@@ -304,6 +304,30 @@ WALLY_CORE_API int wally_psbt_input_keypath_add(
     size_t child_path_len);
 
 /**
+ * Convert and add a pubkey/keypath to an input.
+ *
+ * :param input: The input to add to.
+ * :param pub_key: The pubkey to add.
+ * :param pub_key_len: Length of ``pub_key`` in bytes. Must be `EC_XONLY_PUBLIC_KEY_LEN`.
+ * :param tapleaf_hashes: Series of 32-byte leaf hashes.
+ * :param tapleaf_hashes_len: Length of ``tapleaf_hashes`` in bytes.
+ * :param fingerprint: The master key fingerprint for the pubkey.
+ * :param fingerprint_len: Length of ``fingerprint`` in bytes. Must be `BIP32_KEY_FINGERPRINT_LEN`.
+ * :param child_path: The BIP32 derivation path for the pubkey.
+ * :param child_path_len: The number of items in ``child_path``.
+ */
+WALLY_CORE_API int wally_psbt_input_tap_keypath_add(
+    struct wally_psbt_input *input,
+    const unsigned char *pub_key,
+    size_t pub_key_len,
+    const unsigned char *tapleaf_hashes,
+    size_t tapleaf_hashes_len,
+    const unsigned char *fingerprint,
+    size_t fingerprint_len,
+    const uint32_t *child_path,
+    size_t child_path_len);
+
+/**
  * Set the partial signatures in an input.
  *
  * :param input: The input to update.
