@@ -664,6 +664,51 @@ int wally_map_keypath_add(struct wally_map *map_in,
     return ret;
 }
 
+int wally_map_tap_keypath_add(struct wally_map *leaf_map_in,
+                          struct wally_map *path_map_in,
+                          const unsigned char *pub_key, size_t pub_key_len,
+                          const unsigned char *tapleaf_hashes, size_t tapleaf_hashes_len,
+                          const unsigned char *fingerprint, size_t fingerprint_len,
+                          const uint32_t *path, size_t path_len)
+{
+    unsigned char *value;
+    size_t value_len, i;
+    int ret;
+
+    if (!leaf_map_in || !path_map_in || !fingerprint || fingerprint_len != BIP32_KEY_FINGERPRINT_LEN ||
+        BYTES_INVALID(path, path_len) || pub_key_len != EC_XONLY_PUBLIC_KEY_LEN)
+        return WALLY_EINVAL;
+
+    /* TODO wally_tapleaf_verify? */
+    if (leaf_map_in->verify_fn != wally_keypath_xonly_public_key_verify &&
+        path_map_in->verify_fn != wally_keypath_xonly_public_key_verify &&
+        leaf_map_in->verify_fn != wally_keypath_bip32_verify)
+        return WALLY_EINVAL; /* Not a taproot keypath map */
+
+    /* Add map for tap leaves */
+    ret = map_add(leaf_map_in, pub_key, pub_key_len,
+                  tapleaf_hashes_len ? tapleaf_hashes : NULL, tapleaf_hashes_len, false, false);
+    if (ret != WALLY_OK)
+        return ret;
+
+    value_len = fingerprint_len + path_len * sizeof(uint32_t);
+    if (!(value = wally_malloc(value_len)))
+        return WALLY_ENOMEM;
+
+    memcpy(value, fingerprint, fingerprint_len);
+    for (i = 0; i < path_len; ++i) {
+        leint32_t tmp = cpu_to_le32(path[i]);
+        memcpy(value + fingerprint_len + i * sizeof(uint32_t),
+               &tmp, sizeof(tmp));
+    }
+
+    ret = map_add(path_map_in, pub_key, pub_key_len, value, value_len, true, true);
+    if (ret != WALLY_OK)
+        clear_and_free(value, value_len);
+    return ret;
+}
+
+
 int wally_keypath_get_fingerprint(const unsigned char *val, size_t val_len,
                                   unsigned char *bytes_out, size_t len)
 {

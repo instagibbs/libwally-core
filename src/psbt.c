@@ -194,6 +194,22 @@ static const struct wally_tx_output *utxo_from_input(const struct wally_psbt *ps
                                      child_path, child_path_len); \
     }
 
+/* Add a taproot keypath to parent structs keypaths member */
+#define ADD_TAP_KEYPATH(PARENT) \
+    int PARENT ## _tap_keypath_add(struct PARENT *parent, \
+                               const unsigned char *pub_key, size_t pub_key_len, \
+                               const unsigned char *tapleaf_hashes, size_t tapleaf_hashes_len, \
+                               const unsigned char *fingerprint, size_t fingerprint_len, \
+                               const uint32_t *child_path, size_t child_path_len) { \
+        if (!parent) return WALLY_EINVAL; \
+        return wally_map_tap_keypath_add(&parent->taproot_leaf_hashes, \
+                                         &parent->taproot_leaf_paths, \
+                                         pub_key, pub_key_len, \
+                                         fingerprint, fingerprint_len, \
+                                         tapleaf_hashes, tapleaf_hashes_len, \
+                                         child_path, child_path_len); \
+    }
+
 static int map_field_get_len(const struct wally_map *map_in,
                              uint32_t type, size_t *written)
 {
@@ -303,10 +319,12 @@ int wally_psbt_input_set_witness_utxo_from_tx(struct wally_psbt_input *input,
 MAP_INNER_FIELD(input, redeem_script, PSBT_IN_REDEEM_SCRIPT, psbt_fields)
 MAP_INNER_FIELD(input, witness_script, PSBT_IN_WITNESS_SCRIPT, psbt_fields)
 MAP_INNER_FIELD(input, final_scriptsig, PSBT_IN_FINAL_SCRIPTSIG, psbt_fields)
+MAP_INNER_FIELD(input, tap_key_signature, PSBT_IN_TAP_KEY_SIG, psbt_fields)
 SET_STRUCT(wally_psbt_input, final_witness, wally_tx_witness_stack,
            wally_tx_witness_stack_clone_alloc, wally_tx_witness_stack_free)
 SET_MAP(wally_psbt_input, keypath,)
 ADD_KEYPATH(wally_psbt_input)
+ADD_TAP_KEYPATH(wally_psbt_input)
 SET_MAP(wally_psbt_input, signature, _internal)
 int wally_psbt_input_add_signature(struct wally_psbt_input *input,
                                    const unsigned char *pub_key, size_t pub_key_len,
@@ -4233,12 +4251,9 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
     /* Find the public key this signature is for */
     ret = wally_map_find_bip32_public_key_from(&inp->keypaths, subindex,
                                                hdkey, &pubkey_idx);
-
-    /* FIXME we should be also trying to fetch the public key from a tapkey map f.e. vvv
     if (ret != WALLY_OK)
-        ret = wally_map_find_bip32_public_key_from(&inp->tap_keypaths, subindex,
+        ret = wally_map_find_bip32_public_key_from(&inp->taproot_leaf_hashes, subindex,
                                                hdkey, &pubkey_idx);
-    */
 
     if (ret != WALLY_OK || !pubkey_idx)
         return WALLY_EINVAL; /* Signing pubkey key not found */
@@ -4270,16 +4285,12 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
                                   txhash, txhash_len, flags, sig, sizeof(sig));
     if (ret == WALLY_OK) {
         if (flags & EC_FLAG_SCHNORR) {
-            const struct wally_map_item *pk;
             unsigned char final_sig[EC_SIGNATURE_LEN + 1];
             size_t final_sig_len = EC_SIGNATURE_LEN;
             memcpy(final_sig, sig, EC_SIGNATURE_LEN);
             if (sighash != WALLY_SIGHASH_DEFAULT)
                 final_sig[final_sig_len++] = sighash & 0xff;
-            pk = &inp->keypaths.items[pubkey_idx - 1];
-            /* FIXME this stuff needs to go in proper taproot place aka PSBT_IN_TAP_KEY_SIG */
-            ret = wally_psbt_input_add_signature(inp, pk->key, pk->key_len,
-                                                 final_sig, final_sig_len);
+            wally_psbt_input_set_tap_key_signature(inp, final_sig, final_sig_len);
         } else {
             sighash = inp->sighash ? inp->sighash : WALLY_SIGHASH_ALL;
             /* Convert to DER, add sighash byte and store */

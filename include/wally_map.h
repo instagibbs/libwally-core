@@ -463,6 +463,34 @@ WALLY_CORE_API int wally_map_keypath_add(
     size_t child_path_len);
 
 /**
+ * Convert and add a public key, leaves and path to taproot tapealf/keypath maps.
+ *
+ * :param leaf_map_in: The taproot_leaf_hashes map to add to.
+ * :param path_map_in: The taproot_leaf_paths map to add to.
+ * :param pub_key: The public key or extended public key to add.
+ * :param pub_key_len: Length of ``pub_key`` in bytes. Must be `BIP32_SERIALIZED_LEN`
+ *|    for an extended bip32 public key, or `EC_PUBLIC_KEY_UNCOMPRESSED_LEN`
+ *|    or `EC_PUBLIC_KEY_LEN` for a public key.
+ * :param tapleaf_hashes: Series of 32-byte leaf hashes.
+ * :param tapleaf_hashes_len: Length of ``tapleaf_hashes`` in bytes.
+ * :param fingerprint: The master key fingerprint for the pubkey.
+ * :param fingerprint_len: Length of ``fingerprint`` in bytes. Must be `BIP32_KEY_FINGERPRINT_LEN`.
+ * :param child_path: The BIP32 derivation path for the pubkey.
+ * :param child_path_len: The number of items in ``child_path``.
+ */
+WALLY_CORE_API int wally_map_tap_keypath_add(
+    struct wally_map *leaf_map_in,
+    struct wally_map *path_map_in,
+    const unsigned char *pub_key,
+    size_t pub_key_len,
+    const unsigned char *tapleaf_hashes,
+    size_t tapleaf_hashes_len,
+    const unsigned char *fingerprint,
+    size_t fingerprint_len,
+    const uint32_t *child_path,
+    size_t child_path_len);
+
+/**
  * Get the key fingerprint from a PSBT keypath's serialized value.
  *
  * :param val: The serialized keypath value as stored in a keypath map.
