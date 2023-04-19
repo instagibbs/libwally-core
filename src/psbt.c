@@ -4264,7 +4264,8 @@ int wally_psbt_sign_input_bip32(struct wally_psbt *psbt,
     /* Find the public key this signature is for */
     ret = wally_map_find_bip32_public_key_from(&inp->keypaths, subindex,
                                                hdkey, &pubkey_idx);
-    if (ret != WALLY_OK)
+    /* Try again with taproot field */
+    if (ret != WALLY_OK || !pubkey_idx)
         ret = wally_map_find_bip32_public_key_from(&inp->taproot_leaf_hashes, subindex,
                                                hdkey, &pubkey_idx);
 
