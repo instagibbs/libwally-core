@@ -330,7 +330,7 @@ int wally_psbt_input_add_signature(struct wally_psbt_input *input,
                                    const unsigned char *pub_key, size_t pub_key_len,
                                    const unsigned char *sig, size_t sig_len)
 {
-    if (input && sig && sig_len && sig_len != 64) { /* SIGHASH_DEFAULT */
+    if (input && sig && sig_len) {
         const unsigned char sighash = sig[sig_len - 1];
         if (!sighash || (input->sighash && input->sighash != sighash))
             return WALLY_EINVAL; /* Incompatible sighash */
